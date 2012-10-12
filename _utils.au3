@@ -56,8 +56,8 @@ Func LoadSettings()
 	  Exit
    EndIf
    
-   $p_session = IniRead($sf, "vk", "session","")
-   $p_viewer = IniRead($sf, "vk", "viewer_id","")
+   $sSession = IniRead($sf, "vk", "session","")
+   $sViewer = IniRead($sf, "vk", "viewer_id","")
    $p_key = IniRead($sf, "vk", "auth_key","")
    
    _DebugOut ("Настройки успешно загружены!")

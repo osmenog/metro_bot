@@ -80,9 +80,8 @@ Func PlayArena()
 			Return SetError (1,0,0)
 		 EndIf
 		 
-		 local $fray = $arena_data2_array[2][0]
-		 
-		 _ArrayDisplay($fray)
+		 ;local $fray = $arena_data2_array[2][0]
+		 _ArrayDisplay($arena_data2_array)
 		 
 		 Exit
 		 

@@ -3,8 +3,8 @@
 #include "_http_wrapper.au3"
 #include "JSON.au3"
 
-global $p_session	;="0523eb904d3ddcb7d0af0479a4e3da9dba776d2e0e8950e503d49184bc575d"
-global $p_viewer	;="11096378"
+global $sSession	;="0523eb904d3ddcb7d0af0479a4e3da9dba776d2e0e8950e503d49184bc575d"
+global $sViewer	;="11096378"
 global $p_key		;="245f518dc8b3c5d8c8725f1bc3195410"
 Global $p_sess=0
 
@@ -64,16 +64,9 @@ Func _AddSign (ByRef $p)
 EndFunc
 
 Func _metro_auth()
-   local $params[7]
-   _ArrayPush ($params, "session=" & $p_session)
-   _ArrayPush ($params, "method=user.auth")
-   _ArrayPush ($params, "user=" & $p_viewer)
-   _ArrayPush ($params, "hash=" & Int(Random (Default, 4294967295)))
-   _ArrayPush ($params, "pals=0")
-   _ArrayPush ($params, "lmenu=1")
-   _AddSign ($params) 	;Добавляем подпись
-   
-   $json_data = _http_SendAndReceive($params)
+   local $params[2] = ["pals=0", "lmenu=1"]
+      
+   $json_data = _run_method("user.auth", $params)
    
    if @error then return SetError (1, 0, 0)
 	  
@@ -107,16 +100,9 @@ Func _metro_cacheData()
 EndFunc
 
 Func metro_OpenArena()
-   local $params[7]
-   _ArrayPush ($params, "session=" & $p_session)
-   _ArrayPush ($params, "method=fray.arena")
-   _ArrayPush ($params, "user=" & $p_viewer)
-   _ArrayPush ($params, "hash=" & Int(Random (Default, 4294967295)))
-   _ArrayPush ($params, "sess=" & $p_sess)
+   local $params[1] = ["sess="&$p_sess]
    
-   _AddSign ($params) ;Добавляем подпись
-
-   local $recv_data = _http_SendAndReceive($params)
+   local $recv_data = _run_method("fray.arena", $params)
    
    if @error then return SetError (1, 0, "")
    SetExtended (StringLen ($recv_data))
@@ -124,19 +110,8 @@ Func metro_OpenArena()
 EndFunc
 
 Func metro_StartArena($opponent_id)
-   local $params[9]
-   
-   _ArrayPush ($params, "user=" & $p_viewer)
-   _ArrayPush ($params, "sess=" & $p_sess)
-   _ArrayPush ($params, "foe=" & $opponent_id)
-   _ArrayPush ($params, "method=fray.start")
-   _ArrayPush ($params, "pay=0")
-   _ArrayPush ($params, "session=" & $p_session)
-   _ArrayPush ($params, "hash=" & Int(Random (Default, 4294967295)))
-   _ArrayPush ($params, "ctx=21")
-   _AddSign ($params) ;Добавляем подпись
-
-   local $recv_data = _http_SendAndReceive($params)
+   local $params[4] = ["foe="&$opponent_id, "pay=0", "ctx=21", "sess="&$p_sess]
+   local $recv_data = _run_method ("fray.start", $params)
    
    if @error then return SetError (1, 0, "")
    SetExtended (StringLen ($recv_data))
@@ -144,18 +119,45 @@ Func metro_StartArena($opponent_id)
 EndFunc
 
 Func metro_StopArena()
-  local $params[7]
-   _ArrayPush ($params, "session=" & $p_session)
-   _ArrayPush ($params, "method=fray.stop")
-   _ArrayPush ($params, "user=" & $p_viewer)
-   _ArrayPush ($params, "hash=" & Int(Random (Default, 4294967295)))
-   _ArrayPush ($params, "sess=" & $p_sess)
-   
-   _AddSign ($params) ;Добавляем подпись
-
-   local $recv_data = _http_SendAndReceive($params)
+   local $params[1] = ["sess="&$p_sess]
+   local $recv_data = _run_method ("fray.stop", $params)
    
    if @error then return SetError (1, 0, "")
    SetExtended (StringLen ($recv_data))
    return $recv_data
 EndFunc
+
+; #FUNCTION# ;===============================================================================
+; Name...........: _run_method
+; Description ...: Подготавливает и отправляет запрос за сервер. 
+; Syntax.........: _run_method ($sMethod, $aParams)
+; Parameters ....: $sMethod - Тип выполняемой команды.
+;                  $aParams - Массив, содержищий в себе дополнительные параметры для запроса.
+; Return values .: Успех - Возвращается ответ на запрос в текстовом виде
+;                        - @extended содержит количество принятых байт
+;                  Неудача - Возвращается пустая строка "" и @error:
+;                  |1 - Ошибка подключения
+;                  |2 - Ошибка входного параметра
+;============================================================================================
+Func _run_method ($sMethod, $aParams)
+   local $params[1]
+   ;Переменные $sSession, $sViewer - должны быть глобально заданны при инициализации
+   _ArrayAdd ($params, "session=" & $sSession)
+   _ArrayAdd ($params, "method=" & $sMethod)
+   _ArrayAdd ($params, "user=" & $sViewer)
+   _ArrayAdd ($params, "hash=" & Int(Random (Default, 4294967295)))
+   
+   If (IsArray ($aParams)) AND (UBound($aParams) <> 0) then 
+	  _ArrayConcatenate ($params, $aParams)
+   Else
+	  return SetError (2,0,"") ; Ошибка входных данных
+   EndIf
+   
+   _AddSign ($params) ;Добавляем подпись
+   ;_ArrayDisplay ($params); Для отладки
+   local $recv_data = _http_SendAndReceive($params)
+   
+   if @error then return SetError (1, 0, "")
+   SetExtended (StringLen ($recv_data))
+   return $recv_data
+EndFunc	;==>_run_method
