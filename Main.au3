@@ -32,6 +32,11 @@ Func PlayArena()
    WEnd
    _DebugOut ("Founded #" & $c & ": " & $opponent[0] & ", " & $opponent[1] & ", " & $opponent[2])
    
-   local $fight = Metro_ArenaStart ($opponent[0])
+   local $fight = Metro_ArenaFight ($opponent[0])
+   if @error<>0 then 
+	  _DebugOut ("error on Metro_ArenaFight: " & @error & " ex: " & @extended)
+	  Return 0
+   EndIf
    
+   _DebugOut ("Fight with " & $opponent[1] & ": Win! +" & $fight[1] & " gold +" & $fight[2] & " exp." )
 EndFunc

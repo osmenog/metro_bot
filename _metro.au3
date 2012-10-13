@@ -125,19 +125,19 @@ Func Metro_OpenArena()
    local $arena_data = _JSONDecode($recv_data)
    if (@error<>0) and (NOT IsArray($arena_data)) then 
 	  _DebugOut ("Ошибка принятых данных: " & $_JSONErrorMessage)
-	  _DebugReportVar("$recv_data", $recv_data, True) ;На всякий случай, если JSONDecode вернет ошибку.
+	  _DebugReportVar("$arena_data", $arena_data, True) ;На всякий случай, если JSONDecode вернет ошибку.
 	  return SetError (3, 0, "") ;Ошибка корректности данных - 3
    EndIf
    
    If ($arena_data[1][0] = "error") Then
 	  _DebugOut ("Ошибка в OpenArena. Вернулись неверные данные")
-	  _DebugReportVar ("arena_data_array",$arena_data_array)
+	  _DebugReportVar ("$recv_data",$recv_data)
 	  Return SetError (2, $arena_data[1][1], "")
    EndIf
      
    ;Формируем возвращаемый массив
    local $foe = $arena_data[1][1]
-   local $resp_array[3] = [ $foe[2][1], $foe[1][1], $foe[13][1] ]
+   local $resp_array[3] = [ $foe[1][1], $foe[2][1], $foe[13][1] ]
    
    return $resp_array
 EndFunc ;==>Metro_OpenArena
@@ -173,13 +173,17 @@ Func Metro_ArenaFight($sOpponentID)
    
    If ($arena_data[1][0] = "error") Then
 	  _DebugOut ("Ошибка в ArenaFight. Вернулись неверные данные")
-	  _DebugReportVar ("arena_data_array",$arena_data_array)
+	  _DebugReportVar ("arena_data",$arena_data, True)
 	  Return SetError (2, $arena_data[1][1], "")
    EndIf
      
    ;Формируем возвращаемый массив
-   local $foe = $arena_data[1][1]
-   local $resp_array[3] = [ $foe[2][1], $foe[1][1], $foe[13][1] ]
+   _DebugReportVar ("arena_data",$arena_data, True)
+   local $fray = $arena_data[2][0]
+   _DebugReportVar ("$fray",$fray, True)
+   local $rew = $fray[6][0]
+   _DebugReportVar ("$rew",$rew, True)
+   local $resp_array[3] = [ 1, $rew[1][1], $rew[2][1] ]
    
    return $resp_array
 EndFunc ;==>Metro_ArenaFight
