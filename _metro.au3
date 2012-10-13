@@ -3,9 +3,9 @@
 #include "_http_wrapper.au3"
 #include "JSON.au3"
 
-global $sSession	;="0523eb904d3ddcb7d0af0479a4e3da9dba776d2e0e8950e503d49184bc575d"
-global $sViewer	;="11096378"
-global $p_key		;="245f518dc8b3c5d8c8725f1bc3195410"
+global $sSession
+global $sViewer
+global $p_key
 Global $p_sess=0
 
 global $json_data
@@ -104,14 +104,11 @@ EndFunc
 ; #FUNCTION# ;===============================================================================
 ; Name...........: Metro_OpenArena
 ; Description ...: Выполняет функцию открытия арены, и получения информации о сопернике
-; Syntax.........: Metro_OpenArena
-; Parameters ....: $s###### - ##############
-;                  $a###### - ##############
+; Syntax.........: Metro_OpenArena ()
 ; Return values .: Успех - Возвращает массив элементов, содержащий информацию о сопернике:
 ;                          [0] - ID (foe)
 ;                          [1] - Имя
 ;                          [2] - Фракция
-;                        - @extended #############
 ;                  Неудача - Возвращается пустая строка "" и @error:
 ;                          |1 - Ошибка подключения
 ;                          |2 - Ошибка авторизации
@@ -143,16 +140,49 @@ Func Metro_OpenArena()
    local $resp_array[3] = [ $foe[2][1], $foe[1][1], $foe[13][1] ]
    
    return $resp_array
-EndFunc
+EndFunc ;==>Metro_OpenArena
 
-Func metro_StartArena($opponent_id)
-   local $params[4] = ["foe="&$opponent_id, "pay=0", "ctx=21", "sess="&$p_sess]
+; #FUNCTION# ;===============================================================================
+; Name...........: Metro_ArenaFight
+; Description ...: Инициирует бой с оппонентом на арене 
+; Syntax.........: Metro_ArenaFight ($sOpponentID)
+; Parameters ....: $sOpponentID - ID Вконтакте выбранного соперника
+; Return values .: Успех - Возвращает массив элементов, содержащий информацию о битве:
+;                          [0] - Флаг победы (1-выйгрыш, 0-поражение)
+;                          [1] - Заработанные деньги
+;                          [2] - Заработанный опыт
+;                  Неудача - Возвращается пустая строка "" и @error:
+;                          |1 - Ошибка подключения
+;                          |2 - Ошибка авторизации
+;                          |3 - Запрос вернул не верные данные
+;                          - @extended возвращает номер ошибки полученную от сервера
+;============================================================================================
+Func Metro_ArenaFight($sOpponentID)
+   local $params[4] = ["foe="&$sOpponentID, "pay=0", "ctx=21", "sess="&$p_sess]
    local $recv_data = _run_method ("fray.start", $params)
    
-   if @error then return SetError (1, 0, "")
-   SetExtended (StringLen ($recv_data))
-   return $recv_data
-EndFunc
+   if @error then return SetError (1, 0, "") ;Ошибка подключения
+   
+  ; Выполняем проверку на корректность данных
+   local $arena_data = _JSONDecode($recv_data)
+   if (@error<>0) and (NOT IsArray($arena_data)) then 
+	  _DebugOut ("Ошибка принятых данных: " & $_JSONErrorMessage)
+	  _DebugReportVar("$recv_data", $recv_data, True) ;На всякий случай, если JSONDecode вернет ошибку.
+	  return SetError (3, 0, "") ;Ошибка корректности данных - 3
+   EndIf
+   
+   If ($arena_data[1][0] = "error") Then
+	  _DebugOut ("Ошибка в ArenaFight. Вернулись неверные данные")
+	  _DebugReportVar ("arena_data_array",$arena_data_array)
+	  Return SetError (2, $arena_data[1][1], "")
+   EndIf
+     
+   ;Формируем возвращаемый массив
+   local $foe = $arena_data[1][1]
+   local $resp_array[3] = [ $foe[2][1], $foe[1][1], $foe[13][1] ]
+   
+   return $resp_array
+EndFunc ;==>Metro_ArenaFight
 
 Func metro_StopArena()
    local $params[1] = ["sess="&$p_sess]

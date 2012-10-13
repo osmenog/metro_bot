@@ -31,4 +31,7 @@ Func PlayArena()
 	  $c += 1
    WEnd
    _DebugOut ("Founded #" & $c & ": " & $opponent[0] & ", " & $opponent[1] & ", " & $opponent[2])
+   
+   local $fight = Metro_ArenaStart ($opponent[0])
+   
 EndFunc
