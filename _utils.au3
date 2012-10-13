@@ -63,8 +63,20 @@ Func LoadSettings()
    _DebugOut ("Настройки успешно загружены!")
 EndFunc
 
-Func SaveCache(ByRef $text)
-   local $file = FileOpen("cache.tmp.txt", 10) ; which is similar to 2 + 8 (erase + create dir)
+Func SaveCache(ByRef $text, $filename = "cache.txt")
+   local $file = FileOpen($filename, 10) ; which is similar to 2 + 8 (erase + create dir)
    FileWrite ($file, $text)
    FileClose($file)
+EndFunc
+
+Func LoadFromCache ($filename)
+   local $text = ""
+   local $file = FileOpen($filename, 0) ; read mode
+   While 1
+	  Local $chars = FileRead($file,1)
+	  $text &= $chars
+	  If @error = -1 Then ExitLoop
+   WEnd
+   FileClose($file)
+   return $text
 EndFunc

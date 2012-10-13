@@ -90,7 +90,7 @@ Func _metro_cacheData()
    Debug ("Start caching of data...","metro")
    local $t1 = TimerInit()
    if (not $cached) Then 
-	  SaveCache ($json_data)
+	  ;SaveCache ($json_data, "cache_auth.txt")
 	  $cached_data = _JSONDecode ($json_data)
    EndIf
    $cached=true
@@ -99,14 +99,50 @@ Func _metro_cacheData()
    Return 1
 EndFunc
 
-Func metro_OpenArena()
+;Функции для работы с ареной
+
+; #FUNCTION# ;===============================================================================
+; Name...........: Metro_OpenArena
+; Description ...: Выполняет функцию открытия арены, и получения информации о сопернике
+; Syntax.........: Metro_OpenArena
+; Parameters ....: $s###### - ##############
+;                  $a###### - ##############
+; Return values .: Успех - Возвращает массив элементов, содержащий информацию о сопернике:
+;                          [0] - ID (foe)
+;                          [1] - Имя
+;                          [2] - Фракция
+;                        - @extended #############
+;                  Неудача - Возвращается пустая строка "" и @error:
+;                          |1 - Ошибка подключения
+;                          |2 - Ошибка авторизации
+;                          |3 - Запрос вернул не верные данные
+;                          - @extended возвращает номер ошибки полученную от сервера
+;============================================================================================
+Func Metro_OpenArena()
    local $params[1] = ["sess="&$p_sess]
-   
    local $recv_data = _run_method("fray.arena", $params)
    
-   if @error then return SetError (1, 0, "")
-   SetExtended (StringLen ($recv_data))
-   return $recv_data
+   if @error then return SetError (1, 0, "") ;Ошибка подключения - 1
+	  
+   ; Выполняем проверку на корректность данных
+   local $arena_data = _JSONDecode($recv_data)
+   if (@error<>0) and (NOT IsArray($arena_data)) then 
+	  _DebugOut ("Ошибка принятых данных: " & $_JSONErrorMessage)
+	  _DebugReportVar("$recv_data", $recv_data, True) ;На всякий случай, если JSONDecode вернет ошибку.
+	  return SetError (3, 0, "") ;Ошибка корректности данных - 3
+   EndIf
+   
+   If ($arena_data[1][0] = "error") Then
+	  _DebugOut ("Ошибка в OpenArena. Вернулись неверные данные")
+	  _DebugReportVar ("arena_data_array",$arena_data_array)
+	  Return SetError (2, $arena_data[1][1], "")
+   EndIf
+     
+   ;Формируем возвращаемый массив
+   local $foe = $arena_data[1][1]
+   local $resp_array[3] = [ $foe[2][1], $foe[1][1], $foe[13][1] ]
+   
+   return $resp_array
 EndFunc
 
 Func metro_StartArena($opponent_id)
@@ -156,8 +192,12 @@ Func _run_method ($sMethod, $aParams)
    _AddSign ($params) ;Добавляем подпись
    ;_ArrayDisplay ($params); Для отладки
    local $recv_data = _http_SendAndReceive($params)
+   ;local $recv_data = LoadFromCache ("cache_" & $sMethod & ".txt")
    
    if @error then return SetError (1, 0, "")
    SetExtended (StringLen ($recv_data))
+   
+   SaveCache ($recv_data, "cache_" & $sMethod & ".txt") ;Сохраняем принятые данные в кэш
+   
    return $recv_data
 EndFunc	;==>_run_method
