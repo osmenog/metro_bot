@@ -80,3 +80,13 @@ Func LoadFromCache ($filename)
    FileClose($file)
    return $text
 EndFunc
+
+Func _TimeGetStamp()
+        Local $av_Time
+        $av_Time = DllCall('CrtDll.dll', 'long:cdecl', 'time', 'ptr', 0)
+        If @error Then
+                SetError(99)
+                Return False
+        EndIf
+        Return $av_Time[0]
+EndFunc

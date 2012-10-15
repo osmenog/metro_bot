@@ -2,6 +2,7 @@
 #include "Array.au3"
 #include "_http_wrapper.au3"
 #include "JSON.au3"
+#include "AssocArrays.au3"
 
 global $sSession
 global $sViewer
@@ -141,7 +142,6 @@ Func Metro_OpenArena()
    
    return $resp_array
 EndFunc ;==>Metro_OpenArena
-
 ; #FUNCTION# ;===============================================================================
 ; Name...........: Metro_ArenaFight
 ; Description ...: Инициирует бой с оппонентом на арене 
@@ -178,21 +178,32 @@ Func Metro_ArenaFight($sOpponentID)
    EndIf
      
    ;Формируем возвращаемый массив
-   _DebugReportVar ("arena_data",$arena_data, True)
    local $fray = $arena_data[2][1]
-   _DebugReportVar ("$fray",$fray, True)
    local $rew = $fray[6][1]
-   _DebugReportVar ("$rew",$rew, True)
    local $resp_array[3] = [ 1, $rew[1][1], $rew[2][1] ]
    
    return $resp_array
 EndFunc ;==>Metro_ArenaFight
-
+; #FUNCTION# ;===============================================================================
+; Name...........: Metro_ArenaStop
+; Description ...: Завершает начатый бой с соперником 
+; Syntax.........: Metro_ArenaStop()
+; Parameters ....: 
+; Return values .: Успех - Возвращает массив элементов, содержащий информацию о битве:
+;                          [0] - Заработанные деньги
+;                          [1] - Заработанный опыт
+;                          [2] - Количество побед
+;                  Неудача - Возвращается пустая строка "" и @error:
+;                          |1 - Ошибка подключения
+;                          |2 - Ошибка авторизации
+;                          |3 - Запрос вернул не верные данные
+;                          - @extended возвращает номер ошибки полученную от сервера
+;============================================================================================
 Func Metro_ArenaStop()
    local $params[1] = ["sess="&$p_sess]
    local $recv_data = _run_method ("fray.stop", $params)
    
-   if @error then return SetError (1, 0, "")
+   if @error then return SetError (1, 0, "") ; 1-Ошибка подключения
 	  
     local $arena_data = _JSONDecode($recv_data)
    if (@error<>0) and (NOT IsArray($arena_data)) then 
@@ -202,14 +213,20 @@ Func Metro_ArenaStop()
    EndIf
    
    If ($arena_data[1][0] = "error") Then
-	  _DebugOut ("Ошибка в ArenaFight. Вернулись неверные данные")
+	  _DebugOut ("Ошибка в ArenaStop. Вернулись неверные данные")
 	  _DebugReportVar ("arena_data",$arena_data, True)
 	  Return SetError (2, $arena_data[1][1], "")
    EndIf
    
-   return 1
-EndFunc
-
+   ;Пример возвращаемых данных:
+   ;{"player":{"gold":339,"xp":12849,"ratio":150,"ctx":0,"stat":{"31":172}},"fray":{"win":0,"ctx":0,"run":0,"seq":[],"foe":[],"rew":[],"skip":0}}
+   
+   ;Формируем возвращаемый массив
+   local $player = $arena_data[1][1]
+   ;If Not _ArrayDisplay ($player) then _DebugReportVar ("$player", $player, True)
+   local $resp_array[3] = [ $player[1][1], $player[2][1], $player[3][1] ]
+   return $resp_array
+EndFunc ;==>Metro_ArenaStop
 ; #FUNCTION# ;===============================================================================
 ; Name...........: _run_method
 ; Description ...: Подготавливает и отправляет запрос за сервер. 
@@ -248,3 +265,19 @@ Func _run_method ($sMethod, $aParams)
    
    return $recv_data
 EndFunc	;==>_run_method
+
+Func IsFightTimeout()
+   if (not $cached) then Return 0
+   local $player = $cached_data[4][1]
+   local $stat = $player[29][1]
+   local $attr51 = $stat[14][1]
+   
+   local $currenttime = _TimeGetStamp()
+   if $currenttime > $attr51 then 
+	  Return False
+   Else
+      _DebugOut ("time diff = " & $attr51 - $currenttime)
+	  SetExtended ($attr51)
+	  Return True
+   EndIf
+EndFunc

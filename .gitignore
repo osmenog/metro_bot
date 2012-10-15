@@ -165,3 +165,7 @@ pip-log.txt
 #My
 settings.ini
 cache.tmp.txt
+cache_fray.arena.txt
+cache_fray.start.txt
+cache_fray.stop.txt
+cache_user.auth.txt

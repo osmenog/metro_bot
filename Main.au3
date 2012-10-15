@@ -1,6 +1,8 @@
 #include "_utils.au3"
 #include "_metro.au3"
 
+Global $runned = True	;‘лаг активности бота
+
 Main()
 Exit
 
@@ -10,17 +12,20 @@ Func Main()
    Metro_init()
    _DebugOut ("Gold: " & metro_GetGold() & "; Energy: " & metro_GetEnergy() & ".")
    
-   PlayArena()
-   
+   While $runned
+	  IF NOT IsFightTimeout() Then
+		 PlayArena()
+	  Else
+		 $pausetime = @extended - _TimeGetStamp() + 10
+		 _DebugOut ("Wait for timeout: " & $pausetime & " seconds...")
+		 Sleep ($pausetime*1000)
+	  EndIf
+   WEnd
+
    Metro_destruct()
 EndFunc
 
 Func PlayArena()
-   local $arena_timer = $cached_data[4][1]	;player[]
-   $arena_timer = $arena_timer[29][1]		;stat[]
-   $arena_timer = $arena_timer[14][1]		;"51"
-   _DebugOut ($arena_timer)
-   
    _DebugOut ("Searching opponent...")
    local $c=1 ;—четчик попыток поиска соперника
    while $c < 50
@@ -41,5 +46,11 @@ Func PlayArena()
    
    _DebugOut ("Fight with " & $opponent[1] & ": Win! +" & $fight[1] & " gold +" & $fight[2] & " exp." )
    
-   Metro_ArenaStop()
+   $fight = Metro_ArenaStop()
+   if @error<>0 then 
+	  _DebugOut ("error on Metro_ArenaStop: " & @error & " ex: " & @extended)
+	  Return 0
+   EndIf
+   
+   _DebugOut ("Current stats: " & $fight[0] & " gold, " & $fight[1] & " exp, " & $fight[2] & " win rating.")
 EndFunc
