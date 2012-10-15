@@ -169,3 +169,5 @@ cache_fray.arena.txt
 cache_fray.start.txt
 cache_fray.stop.txt
 cache_user.auth.txt
+debug.log
+Main.exe

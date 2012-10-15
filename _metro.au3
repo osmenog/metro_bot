@@ -2,7 +2,6 @@
 #include "Array.au3"
 #include "_http_wrapper.au3"
 #include "JSON.au3"
-#include "AssocArrays.au3"
 
 global $sSession
 global $sViewer
@@ -13,6 +12,15 @@ global $json_data
 Global $cached_data
 Global $cached = false
 
+;~ Global $oCache
+;~ Global $oMyError
+
+Global $metro_var_gold = 0			;Деньги
+Global $metro_var_xp = 0			;Опыт
+Global $metro_var_level = 0			;Уровень
+Global $metro_var_energy = 0		;Оставшаяся энергия
+Global $metro_var_ratio = 0			;Количетво Побед
+Global $metro_var_ArenaTimer = 0	;Таймштамп последней битвы на арене
 
 ; #FUNCTION# ;===============================================================================
 ; Name...........: Metro_Init
@@ -27,7 +35,10 @@ Global $cached = false
 ;============================================================================================
 Func Metro_Init()
    _DebugOut ("[metro] initialization ...")
-      
+   
+;~    $oCache = ObjCreate("Scripting.Dictionary") ; Создаем обьект - ассоциативный массив
+;~    $oMyError = ObjEvent("AutoIt.Error", "Metro_ErrHandler")    ; Initialize a COM error handler
+   
    if NOT _http_init() Then 
 	  _DebugOut ("[metro] http_init error")
 	  SetError (1)
@@ -54,6 +65,8 @@ EndFunc	;==>_WinHttpAddRequestHeaders
 
 Func Metro_destruct()
    _http_destruct()
+;~    $oMyError = 0
+;~    $oCache = 0
 EndFunc
 
 Func _AddSign (ByRef $p)
@@ -75,28 +88,26 @@ Func _metro_auth()
    Return 1   
 EndFunc
 
-Func metro_getGold()
-   if (not $cached) then Return 0
-   local $pd = $cached_data[4][1]
-   Return $pd[13][1]
-EndFunc
-
-Func metro_GetEnergy()
-   if (not $cached) then Return 0
-   local $pd = $cached_data[4][1]
-   Return $pd[28][1]
-EndFunc
-   
 Func _metro_cacheData()
-   Debug ("Start caching of data...","metro")
+   _DebugOut ("[metro] Start caching of data...")
    local $t1 = TimerInit()
    if (not $cached) Then 
 	  ;SaveCache ($json_data, "cache_auth.txt")
 	  $cached_data = _JSONDecode ($json_data)
+	  ;---
+	  local $player = $cached_data[4][1]
+	  $metro_var_gold = $player[13][1]
+	  $metro_var_xp = $player[17][1]
+	  $metro_var_level = $player[19][1]
+	  $metro_var_ratio = $player[20][1]
+	  $metro_var_energy = $player[28][1]
+	  local $player_stat = $player[29][1]
+	  $metro_var_ArenaTimer = $player_stat[14][1]
+	  ;---
    EndIf
    $cached=true
    Local $t2 = TimerDiff($t1)
-   Debug ("Cached received data in " & $t2 & " ms.","metro")
+   _DebugOut ("[metro] Cached received data in " & $t2 & " ms.")
    Return 1
 EndFunc
 
@@ -182,6 +193,8 @@ Func Metro_ArenaFight($sOpponentID)
    local $rew = $fray[6][1]
    local $resp_array[3] = [ 1, $rew[1][1], $rew[2][1] ]
    
+   $metro_var_ArenaTimer = _TimeGetStamp() + 300
+   
    return $resp_array
 EndFunc ;==>Metro_ArenaFight
 ; #FUNCTION# ;===============================================================================
@@ -225,6 +238,11 @@ Func Metro_ArenaStop()
    local $player = $arena_data[1][1]
    ;If Not _ArrayDisplay ($player) then _DebugReportVar ("$player", $player, True)
    local $resp_array[3] = [ $player[1][1], $player[2][1], $player[3][1] ]
+   
+   $metro_var_gold = $resp_array[0]
+   $metro_var_xp = $resp_array[1]
+   $metro_var_ratio = $resp_array[2]
+   
    return $resp_array
 EndFunc ;==>Metro_ArenaStop
 ; #FUNCTION# ;===============================================================================
@@ -268,16 +286,20 @@ EndFunc	;==>_run_method
 
 Func IsFightTimeout()
    if (not $cached) then Return 0
-   local $player = $cached_data[4][1]
-   local $stat = $player[29][1]
-   local $attr51 = $stat[14][1]
    
    local $currenttime = _TimeGetStamp()
-   if $currenttime > $attr51 then 
+   if $currenttime > $metro_var_ArenaTimer then 
 	  Return False
    Else
-      _DebugOut ("time diff = " & $attr51 - $currenttime)
-	  SetExtended ($attr51)
+      ;_DebugOut ("time diff = " & $metro_var_ArenaTimer - $currenttime)
+	  SetExtended ($metro_var_ArenaTimer)
 	  Return True
    EndIf
 EndFunc
+
+;~ ; This is my custom defined error handler
+;~ Func Metro_ErrHandler()
+;~    Local $err = $oMyError.number
+;~    If $err = 0 Then $err = -1
+;~    SetError($err)  ; to check for after this function returns
+;~ EndFunc   ;==>MyErrFunc

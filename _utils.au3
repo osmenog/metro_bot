@@ -35,7 +35,7 @@ EndFunc
 Func Debug ($str,$caption='')
    ;Если функция вызывается впервые, то инициализируем отладочную сессию
    if $init_debug_session = False then 
-	  _DebugSetup("Metro bot debug log", True);, 2) ;Вывод информации в консоль
+	  _DebugSetup("Metro bot debug log", True, 4, "debug.log")
 	  $init_debug_session = true
    EndIf
    
@@ -89,4 +89,18 @@ Func _TimeGetStamp()
                 Return False
         EndIf
         Return $av_Time[0]
+	 EndFunc
+	 
+Func SaveStatistics ($iGold,$iXP)
+   local $sf = @ScriptDir & "\settings.ini"
+   
+   If NOT FileExists ($sf) then 
+	  _DebugOut ("Отсутствует файл settings.ini!")
+	  Exit
+   EndIf
+   
+   local $cur_gold = IniRead($sf, "stats", "gold", 0)
+   local $cur_exp = IniRead($sf, "stats", "xp", 0)
+   IniWrite ($sf, "stats", "gold", $cur_gold + $iGold)
+   IniWrite ($sf, "stats", "xp", $cur_exp + $iXP)
 EndFunc

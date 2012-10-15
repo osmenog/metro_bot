@@ -2,6 +2,7 @@
 #include "_metro.au3"
 
 Global $runned = True	;Флаг активности бота
+Global $ver = "0.1"		;Версия скрипта
 
 Main()
 Exit
@@ -10,7 +11,7 @@ Func Main()
    Debug ("Started...","main")
    LoadSettings()
    Metro_init()
-   _DebugOut ("Gold: " & metro_GetGold() & "; Energy: " & metro_GetEnergy() & ".")
+   _DebugOut ("Gold: " & $metro_var_gold & "; Energy: " & $metro_var_energy & ".")
    
    While $runned
 	  IF NOT IsFightTimeout() Then
@@ -18,8 +19,8 @@ Func Main()
 	  Else
 		 $pausetime = @extended - _TimeGetStamp() + 10
 		 _DebugOut ("Wait for timeout: " & $pausetime & " seconds...")
-		 Sleep ($pausetime*1000)
 	  EndIf
+	  Sleep (10000)
    WEnd
 
    Metro_destruct()
@@ -45,6 +46,7 @@ Func PlayArena()
    EndIf
    
    _DebugOut ("Fight with " & $opponent[1] & ": Win! +" & $fight[1] & " gold +" & $fight[2] & " exp." )
+   SaveStatistics ($fight[1], $fight[2])
    
    $fight = Metro_ArenaStop()
    if @error<>0 then 
