@@ -35,8 +35,11 @@ Func PlayArena()
    local $fight = Metro_ArenaFight ($opponent[0])
    if @error<>0 then 
 	  _DebugOut ("error on Metro_ArenaFight: " & @error & " ex: " & @extended)
+	  if @extended="1202" then _DebugOut ("need timeout 5 min")
 	  Return 0
    EndIf
    
    _DebugOut ("Fight with " & $opponent[1] & ": Win! +" & $fight[1] & " gold +" & $fight[2] & " exp." )
+   
+   Metro_ArenaStop()
 EndFunc

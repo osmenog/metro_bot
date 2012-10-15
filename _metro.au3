@@ -179,22 +179,35 @@ Func Metro_ArenaFight($sOpponentID)
      
    ;Формируем возвращаемый массив
    _DebugReportVar ("arena_data",$arena_data, True)
-   local $fray = $arena_data[2][0]
+   local $fray = $arena_data[2][1]
    _DebugReportVar ("$fray",$fray, True)
-   local $rew = $fray[6][0]
+   local $rew = $fray[6][1]
    _DebugReportVar ("$rew",$rew, True)
    local $resp_array[3] = [ 1, $rew[1][1], $rew[2][1] ]
    
    return $resp_array
 EndFunc ;==>Metro_ArenaFight
 
-Func metro_StopArena()
+Func Metro_ArenaStop()
    local $params[1] = ["sess="&$p_sess]
    local $recv_data = _run_method ("fray.stop", $params)
    
    if @error then return SetError (1, 0, "")
-   SetExtended (StringLen ($recv_data))
-   return $recv_data
+	  
+    local $arena_data = _JSONDecode($recv_data)
+   if (@error<>0) and (NOT IsArray($arena_data)) then 
+	  _DebugOut ("Ошибка принятых данных: " & $_JSONErrorMessage)
+	  _DebugReportVar("$recv_data", $recv_data, True) ;На всякий случай, если JSONDecode вернет ошибку.
+	  return SetError (3, 0, "") ;Ошибка корректности данных - 3
+   EndIf
+   
+   If ($arena_data[1][0] = "error") Then
+	  _DebugOut ("Ошибка в ArenaFight. Вернулись неверные данные")
+	  _DebugReportVar ("arena_data",$arena_data, True)
+	  Return SetError (2, $arena_data[1][1], "")
+   EndIf
+   
+   return 1
 EndFunc
 
 ; #FUNCTION# ;===============================================================================
