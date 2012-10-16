@@ -32,20 +32,16 @@ Func _URIDecode($sData)
     Return BinaryToString(StringToBinary($aData[1],1),4)
 EndFunc
  
-Func Debug ($str,$caption='')
+Func DebugPrnt ($str)
    ;Если функция вызывается впервые, то инициализируем отладочную сессию
    if $init_debug_session = False then 
-	  _DebugSetup("Metro bot debug log", True, 4, "debug.log")
+	  _DebugSetup("Metro bot debug log", True);, 2, "debug.log")
 	  $init_debug_session = true
    EndIf
    
    If StringLen($str)=0 then Return
    Local $msg
-   If $caption<>'' then 
-	  $msg="[" & $caption & "] " & $str
-   Else
-	  $msg= $str
-   EndIf
+   $msg="[" & @HOUR & ":" & @MIN & ":" & @SEC & "." & @MSEC & "]" & @TAB & $str
    _DebugOut ($msg)
 EndFunc
 

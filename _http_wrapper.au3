@@ -20,7 +20,7 @@ Func _http_destruct()
    _WinHttpCloseHandle($hConnect)
    _WinHttpCloseHandle($hOpen)
    if NOT @error then 
-	  _DebugOut ("[winhttp] destroy successfully")
+	  DebugPrnt ("[winhttp] destroy successfully")
    Else
 	  _DebugReport ("[winhttp] destroy error", True)
 	  return SetError (1, 0, 0)

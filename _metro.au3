@@ -12,9 +12,6 @@ global $json_data
 Global $cached_data
 Global $cached = false
 
-;~ Global $oCache
-;~ Global $oMyError
-
 Global $metro_var_gold = 0			;Деньги
 Global $metro_var_xp = 0			;Опыт
 Global $metro_var_level = 0			;Уровень
@@ -34,39 +31,31 @@ Global $metro_var_ArenaTimer = 0	;Таймштамп последней битвы на арене
 ;                  |1 - DllCall failed
 ;============================================================================================
 Func Metro_Init()
-   _DebugOut ("[metro] initialization ...")
-   
-;~    $oCache = ObjCreate("Scripting.Dictionary") ; Создаем обьект - ассоциативный массив
-;~    $oMyError = ObjEvent("AutoIt.Error", "Metro_ErrHandler")    ; Initialize a COM error handler
-   
+   DebugPrnt ("[metro] initialization ...")
+     
    if NOT _http_init() Then 
-	  _DebugOut ("[metro] http_init error")
+	  DebugPrnt ("[metro] http_init error")
 	  SetError (1)
    ElseIf NOT _metro_auth() Then
-	  _DebugOut ("[metro] metro_auth error")
+	  DebugPrnt ("[metro] metro_auth error")
 	  SetError (2)
    ElseIf NOT _metro_cacheData() Then
-	  _DebugOut ("metro_cacheData error")
+	  DebugPrnt ("metro_cacheData error")
 	  SetError (3)
    EndIf
-   
-   ;_ArrayDisplay ($cached_data)
-   
+     
    if Not @error Then
 	  $p_sess = $cached_data[1][1]
-	  _DebugOut ("[metro] initialization complete. SessionId: " & $p_sess)
+	  DebugPrnt ("[metro] initialization complete. SessionId: " & $p_sess)
 	  Return 1
    Else
-	  _DebugOut ("[metro] error on metro initialization. Exit programm.")
+	  DebugPrnt ("[metro] error on metro initialization. Exit programm.")
 	  Return @error
    EndIf
-   
 EndFunc	;==>_WinHttpAddRequestHeaders
 
 Func Metro_destruct()
    _http_destruct()
-;~    $oMyError = 0
-;~    $oCache = 0
 EndFunc
 
 Func _AddSign (ByRef $p)
@@ -84,12 +73,12 @@ Func _metro_auth()
    
    if @error then return SetError (1, 0, 0)
 	  
-   _DebugOut ("[metro] Auth successful! Received " & StringLen ($json_data) & " bytes")
+   DebugPrnt ("[metro] Auth successful! Received " & StringLen ($json_data) & " bytes")
    Return 1   
 EndFunc
 
 Func _metro_cacheData()
-   _DebugOut ("[metro] Start caching of data...")
+   DebugPrnt ("[metro] Start caching of data...")
    local $t1 = TimerInit()
    if (not $cached) Then 
 	  ;SaveCache ($json_data, "cache_auth.txt")
@@ -107,7 +96,7 @@ Func _metro_cacheData()
    EndIf
    $cached=true
    Local $t2 = TimerDiff($t1)
-   _DebugOut ("[metro] Cached received data in " & $t2 & " ms.")
+   DebugPrnt ("[metro] Cached received data in " & $t2 & " ms.")
    Return 1
 EndFunc
 
@@ -136,13 +125,13 @@ Func Metro_OpenArena()
    ; Выполняем проверку на корректность данных
    local $arena_data = _JSONDecode($recv_data)
    if (@error<>0) and (NOT IsArray($arena_data)) then 
-	  _DebugOut ("Ошибка принятых данных: " & $_JSONErrorMessage)
+	  DebugPrnt ("Ошибка принятых данных: " & $_JSONErrorMessage)
 	  _DebugReportVar("$arena_data", $arena_data, True) ;На всякий случай, если JSONDecode вернет ошибку.
 	  return SetError (3, 0, "") ;Ошибка корректности данных - 3
    EndIf
    
    If ($arena_data[1][0] = "error") Then
-	  _DebugOut ("Ошибка в OpenArena. Вернулись неверные данные")
+	  DebugPrnt ("Ошибка в OpenArena. Вернулись неверные данные")
 	  _DebugReportVar ("$recv_data",$recv_data)
 	  Return SetError (2, $arena_data[1][1], "")
    EndIf
@@ -177,24 +166,27 @@ Func Metro_ArenaFight($sOpponentID)
   ; Выполняем проверку на корректность данных
    local $arena_data = _JSONDecode($recv_data)
    if (@error<>0) and (NOT IsArray($arena_data)) then 
-	  _DebugOut ("Ошибка принятых данных: " & $_JSONErrorMessage)
+	  DebugPrnt ("Ошибка принятых данных: " & $_JSONErrorMessage)
 	  _DebugReportVar("$recv_data", $recv_data, True) ;На всякий случай, если JSONDecode вернет ошибку.
 	  return SetError (3, 0, "") ;Ошибка корректности данных - 3
    EndIf
    
    If ($arena_data[1][0] = "error") Then
-	  _DebugOut ("Ошибка в ArenaFight. Вернулись неверные данные")
+	  DebugPrnt ("Ошибка в ArenaFight. Вернулись неверные данные")
 	  _DebugReportVar ("arena_data",$arena_data, True)
 	  Return SetError (2, $arena_data[1][1], "")
    EndIf
      
    ;Формируем возвращаемый массив
+   local $player = $arena_data[1][1]
+   local $stat = $player[3][1]
+   $metro_var_ArenaTimer = $stat[1][1]
+   DebugPrnt ($metro_var_ArenaTimer)
+   
    local $fray = $arena_data[2][1]
    local $rew = $fray[6][1]
-   local $resp_array[3] = [ 1, $rew[1][1], $rew[2][1] ]
-   
-   $metro_var_ArenaTimer = _TimeGetStamp() + 300
-   
+   local $resp_array[3] = [ $fray[1][1], $rew[1][1], $rew[2][1] ]
+      
    return $resp_array
 EndFunc ;==>Metro_ArenaFight
 ; #FUNCTION# ;===============================================================================
@@ -220,13 +212,13 @@ Func Metro_ArenaStop()
 	  
     local $arena_data = _JSONDecode($recv_data)
    if (@error<>0) and (NOT IsArray($arena_data)) then 
-	  _DebugOut ("Ошибка принятых данных: " & $_JSONErrorMessage)
+	  DebugPrnt ("Ошибка принятых данных: " & $_JSONErrorMessage)
 	  _DebugReportVar("$recv_data", $recv_data, True) ;На всякий случай, если JSONDecode вернет ошибку.
 	  return SetError (3, 0, "") ;Ошибка корректности данных - 3
    EndIf
    
    If ($arena_data[1][0] = "error") Then
-	  _DebugOut ("Ошибка в ArenaStop. Вернулись неверные данные")
+	  DebugPrnt ("Ошибка в ArenaStop. Вернулись неверные данные")
 	  _DebugReportVar ("arena_data",$arena_data, True)
 	  Return SetError (2, $arena_data[1][1], "")
    EndIf
@@ -236,7 +228,7 @@ Func Metro_ArenaStop()
    
    ;Формируем возвращаемый массив
    local $player = $arena_data[1][1]
-   ;If Not _ArrayDisplay ($player) then _DebugReportVar ("$player", $player, True)
+   ;If Not _ArrayDisplay ($player) then ReportVar ("$player", $player, True)
    local $resp_array[3] = [ $player[1][1], $player[2][1], $player[3][1] ]
    
    $metro_var_gold = $resp_array[0]
@@ -259,7 +251,6 @@ EndFunc ;==>Metro_ArenaStop
 ;============================================================================================
 Func _run_method ($sMethod, $aParams)
    local $params[1]
-   ;Переменные $sSession, $sViewer - должны быть глобально заданны при инициализации
    _ArrayAdd ($params, "session=" & $sSession)
    _ArrayAdd ($params, "method=" & $sMethod)
    _ArrayAdd ($params, "user=" & $sViewer)
@@ -272,15 +263,12 @@ Func _run_method ($sMethod, $aParams)
    EndIf
    
    _AddSign ($params) ;Добавляем подпись
-   ;_ArrayDisplay ($params); Для отладки
    local $recv_data = _http_SendAndReceive($params)
-   ;local $recv_data = LoadFromCache ("cache_" & $sMethod & ".txt")
    
    if @error then return SetError (1, 0, "")
    SetExtended (StringLen ($recv_data))
    
    SaveCache ($recv_data, "cache_" & $sMethod & ".txt") ;Сохраняем принятые данные в кэш
-   
    return $recv_data
 EndFunc	;==>_run_method
 
@@ -291,15 +279,7 @@ Func IsFightTimeout()
    if $currenttime > $metro_var_ArenaTimer then 
 	  Return False
    Else
-      ;_DebugOut ("time diff = " & $metro_var_ArenaTimer - $currenttime)
 	  SetExtended ($metro_var_ArenaTimer)
 	  Return True
    EndIf
 EndFunc
-
-;~ ; This is my custom defined error handler
-;~ Func Metro_ErrHandler()
-;~    Local $err = $oMyError.number
-;~    If $err = 0 Then $err = -1
-;~    SetError($err)  ; to check for after this function returns
-;~ EndFunc   ;==>MyErrFunc
