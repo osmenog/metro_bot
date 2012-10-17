@@ -6,14 +6,14 @@ Opt("TrayIconHide", 1) ;0=show, 1=hide tray icon
 #include "_metro.au3"
 
 Global $runned = True	;Флаг активности бота
-Global $ver = "0.1.1"		;Версия скрипта
+Global $ver = "0.1.2"		;Версия скрипта
 
 Main()
 Exit
 
 Func Main()
-   DebugPrnt ("Started...")
    LoadSettings()
+   DebugPrnt ("Started...")
    Metro_init()
    DebugPrnt ("Gold: " & $metro_var_gold & "; exp: " & $metro_var_xp & "; Energy: " & $metro_var_energy & ".")
    
@@ -32,7 +32,7 @@ Func Main()
 	  IF NOT IsFightTimeout() Then
 		 PlayArena()
 	  Else
-		 $pausetime = @extended - _TimeGetStamp() + 10
+		 $pausetime = @extended - _TimeGetStamp() + 15
 		 DebugPrnt ("Wait for timeout: " & $pausetime & " seconds...")
 	  EndIf
 	  Sleep (10000)
@@ -67,7 +67,6 @@ Func PlayArena()
    
    if $fight[0]=1 Then
 	  DebugPrnt ("Fight with " & $opponent[1] & ": Win! +" & $fight[1] & " gold +" & $fight[2] & " exp." )
-	  SaveStatistics ($fight[1], $fight[2])
    Else
 	  DebugPrnt ("Fight with " & $opponent[1] & ": Loose...")
    EndIf

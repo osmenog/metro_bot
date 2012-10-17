@@ -1,5 +1,6 @@
 #include <Debug.au3>
 global $init_debug_session = False
+global $settings_savecache = 0
 
 Func _URIEncode($sData)
     ; Prog@ndy
@@ -35,7 +36,7 @@ EndFunc
 Func DebugPrnt ($str)
    ;Если функция вызывается впервые, то инициализируем отладочную сессию
    if $init_debug_session = False then 
-	  _DebugSetup("Metro bot debug log", True, 4, "debug.log")
+	 
 	  $init_debug_session = true
    EndIf
    
@@ -47,16 +48,25 @@ EndFunc
 
 Func LoadSettings()
    local $sf = @ScriptDir & "\settings.ini"
-   If NOT FileExists ($sf) then 
-	  _DebugOut ("Отсутствует файл settings.ini!")
-	  Exit
-   EndIf
-   
+;~    If NOT FileExists ($sf) then 
+;~ 	  _DebugOut ("Отсутствует файл settings.ini!")
+;~ 	  Exit
+;~    EndIf
    $sSession = IniRead($sf, "vk", "session","")
    $sViewer = IniRead($sf, "vk", "viewer_id","")
    $p_key = IniRead($sf, "vk", "auth_key","")
    
-   _DebugOut ("Настройки успешно загружены!")
+   local $iDebugFlag = IniRead($sf, "debug", "flag","4")
+   $settings_savecache = IniRead($sf, "debug", "savecache", 0)
+
+   _DebugSetup("Metro bot debug log", True, $iDebugFlag, @ScriptDir & "\debug.log")
+   
+   If NOT FileExists ($sf) then 
+	  DebugPrnt ("Settings.ini not found! Terminate!")
+	  Exit (1)
+   EndIf
+   
+   DebugPrnt ("Settings loaded!")
 EndFunc
 
 Func SaveCache(ByRef $text, $filename = "cache.txt")
@@ -87,16 +97,21 @@ Func _TimeGetStamp()
         Return $av_Time[0]
 	 EndFunc
 	 
-Func SaveStatistics ($iGold,$iXP)
+Func SaveStatistics ($iGold = 0, $iExp = 0, $iWins = 0, $iLoses = 0)
    local $sf = @ScriptDir & "\settings.ini"
    
    If NOT FileExists ($sf) then 
 	  _DebugOut ("Отсутствует файл settings.ini!")
-	  Exit
+	  Return 
    EndIf
    
    local $cur_gold = IniRead($sf, "stats", "gold", 0)
    local $cur_exp = IniRead($sf, "stats", "xp", 0)
+   local $cur_wins = IniRead($sf, "stats", "wins", 0)
+   local $cur_loses = IniRead($sf, "stats", "loses", 0)
+   
    IniWrite ($sf, "stats", "gold", $cur_gold + $iGold)
-   IniWrite ($sf, "stats", "xp", $cur_exp + $iXP)
+   IniWrite ($sf, "stats", "xp", $cur_exp + $iExp)
+   IniWrite ($sf, "stats", "wins", $cur_wins + $iWins)
+   IniWrite ($sf, "stats", "loses", $cur_loses + $iLoses)
 EndFunc

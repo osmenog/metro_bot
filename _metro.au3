@@ -20,6 +20,11 @@ Global $metro_var_ratio = 0			;Количетво Побед
 Global $metro_var_ArenaTimer = 0	;Таймштамп последней битвы на арене
 Global $metro_var_NotFinishedFight = False
 
+;~ Global $metro_statistics_gold = 0
+;~ Global $metro_statistics_xp = 0
+;~ Global $metro_statistics_wins = 0
+;~ Global $metro_statistics_loses = 0
+
 ; #FUNCTION# ;===============================================================================
 ; Name...........: Metro_Init
 ; Description ...: Инициализирует подключение к серверу, и выполняет запрос "user.auth"
@@ -82,7 +87,6 @@ Func _metro_cacheData()
    DebugPrnt ("[metro] Start caching of data...")
    local $t1 = TimerInit()
    if (not $cached) Then 
-	  ;SaveCache ($json_data, "cache_auth.txt")
 	  $cached_data = _JSONDecode ($json_data)
 	  ;---
 	  local $player = $cached_data[4][1]
@@ -104,8 +108,7 @@ Func _metro_cacheData()
    Return 1
 EndFunc
 
-;Функции для работы с ареной
-
+#region "Функции для работы с ареной"
 ; #FUNCTION# ;===============================================================================
 ; Name...........: Metro_OpenArena
 ; Description ...: Выполняет функцию открытия арены, и получения информации о сопернике
@@ -146,6 +149,7 @@ Func Metro_OpenArena()
    
    return $resp_array
 EndFunc ;==>Metro_OpenArena
+
 ; #FUNCTION# ;===============================================================================
 ; Name...........: Metro_ArenaFight
 ; Description ...: Инициирует бой с оппонентом на арене 
@@ -185,14 +189,20 @@ Func Metro_ArenaFight($sOpponentID)
    local $player = $arena_data[1][1]
    local $stat = $player[3][1]
    $metro_var_ArenaTimer = $stat[1][1]
-   DebugPrnt ($metro_var_ArenaTimer)
-   
+      
    local $fray = $arena_data[2][1]
    local $rew = $fray[6][1]
    local $resp_array[3] = [ $fray[1][1], $rew[1][1], $rew[2][1] ]
-      
+   
+   if $fray[1][1] = 1 then 
+	  SaveStatistics ($resp_array[1], $resp_array[2], 1, 0)
+   else
+	  SaveStatistics (0, 0, 0, 1)
+   EndIf
+   
    return $resp_array
 EndFunc ;==>Metro_ArenaFight
+
 ; #FUNCTION# ;===============================================================================
 ; Name...........: Metro_ArenaStop
 ; Description ...: Завершает начатый бой с соперником 
@@ -227,9 +237,6 @@ Func Metro_ArenaStop()
 	  Return SetError (2, $arena_data[1][1], "")
    EndIf
    
-   ;Пример возвращаемых данных:
-   ;{"player":{"gold":339,"xp":12849,"ratio":150,"ctx":0,"stat":{"31":172}},"fray":{"win":0,"ctx":0,"run":0,"seq":[],"foe":[],"rew":[],"skip":0}}
-   
    ;Формируем возвращаемый массив
    local $player = $arena_data[1][1]
    ;If Not _ArrayDisplay ($player) then ReportVar ("$player", $player, True)
@@ -241,6 +248,8 @@ Func Metro_ArenaStop()
    
    return $resp_array
 EndFunc ;==>Metro_ArenaStop
+#endregion
+
 ; #FUNCTION# ;===============================================================================
 ; Name...........: _run_method
 ; Description ...: Подготавливает и отправляет запрос за сервер. 
@@ -272,10 +281,19 @@ Func _run_method ($sMethod, $aParams)
    if @error then return SetError (1, 0, "")
    SetExtended (StringLen ($recv_data))
    
-   SaveCache ($recv_data, "cache_" & $sMethod & ".txt") ;Сохраняем принятые данные в кэш
+   if $settings_savecache = 1 then SaveCache ($recv_data, "cache_" & $sMethod & ".txt") ;Сохраняем принятые данные в кэш
+	  
    return $recv_data
 EndFunc	;==>_run_method
 
+; #FUNCTION# ;===============================================================================
+; Name...........: IsFightTimeout
+; Description ...: Определяет, активен ли таймаут с последнего запроса ArenaFight
+; Syntax.........: IsFightTimeout ()
+; Return values .: True - Таймаут активен, тоесть необходимо сделать паузу
+;                       - @extended содержит штамп времени, когда таймаут закончится
+;                  False - Таймаут не активет, тоесть можно выполнять запрос ArenaStop
+;============================================================================================
 Func IsFightTimeout()
    if (not $cached) then Return 0
    
@@ -286,4 +304,4 @@ Func IsFightTimeout()
 	  SetExtended ($metro_var_ArenaTimer)
 	  Return True
    EndIf
-EndFunc
+EndFunc ;==>IsFightTimeout
