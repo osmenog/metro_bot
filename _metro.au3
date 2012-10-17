@@ -19,6 +19,7 @@ Global $metro_var_energy = 0		;Оставшаяся энергия
 Global $metro_var_ratio = 0			;Количетво Побед
 Global $metro_var_ArenaTimer = 0	;Таймштамп последней битвы на арене
 Global $metro_var_NotFinishedFight = False
+Global $metro_var_servertime = 0
 
 ;~ Global $metro_statistics_gold = 0
 ;~ Global $metro_statistics_xp = 0
@@ -100,6 +101,7 @@ Func _metro_cacheData()
 	  local $fray = $cached_data[7][1]
 	  local $foe = $fray[2][1]
 	  if IsArray($foe) and (UBound($foe) <> 0) then $metro_var_NotFinishedFight = true
+	  $metro_var_servertime = $cached_data[13][1]
 	  ;---
    EndIf
    $cached=true

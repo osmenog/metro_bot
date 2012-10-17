@@ -15,8 +15,8 @@ Func Main()
    LoadSettings()
    DebugPrnt ("Started...")
    Metro_init()
-   DebugPrnt ("Gold: " & $metro_var_gold & "; exp: " & $metro_var_xp & "; Energy: " & $metro_var_energy & ".")
-   
+   DebugPrnt ("Gold: " & $metro_var_gold & "; exp: " & $metro_var_xp & "; energy: " & $metro_var_energy & ".")
+   DebugPrnt ("Servertime: " & $metro_var_servertime & ", current: " & _TimeGetStamp() & ", diff: " & (_TimeGetStamp()-$metro_var_servertime))
    While $runned
 	  IF $metro_var_NotFinishedFight = true then 
 		 _DebugOut ("Обнаружена не завершенная битва на арене!!!")
@@ -46,14 +46,15 @@ Func PlayArena()
    local $c=1 ;Счетчик попыток поиска соперника
    while $c < 50
 	  local $opponent = Metro_OpenArena()	 ;Заходим на арену, получаем инфу о сопернике.
+	  ;Тут нужна проверка на @error
 	  DebugPrnt ("Oppenent #" & $c & ": " & $opponent[0] & ", " & $opponent[1] & ", " & $opponent[2])
 	  If $opponent[2] = 0 Then ExitLoop
-	  Sleep (2000)
+	  Sleep (1000)
 	  $c += 1
    WEnd
    DebugPrnt ("Founded #" & $c & ": " & $opponent[0] & ", " & $opponent[1] & ", " & $opponent[2])
    
-   local $fight = Metro_ArenaFight ($opponent[0]) ;"170009563"
+   local $fight = Metro_ArenaFight ($opponent[0])
    if @error<>0 then 
 	  DebugPrnt ("error on Metro_ArenaFight: " & @error & " ex: " & @extended)
 	  if @extended="1202" then 
