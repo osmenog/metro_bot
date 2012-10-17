@@ -35,7 +35,7 @@ EndFunc
 Func DebugPrnt ($str)
    ;Если функция вызывается впервые, то инициализируем отладочную сессию
    if $init_debug_session = False then 
-	  _DebugSetup("Metro bot debug log", True);, 2, "debug.log")
+	  _DebugSetup("Metro bot debug log", True, 4, "debug.log")
 	  $init_debug_session = true
    EndIf
    

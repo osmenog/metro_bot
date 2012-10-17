@@ -1,8 +1,12 @@
+Opt("TrayAutoPause", 0) ;0=no pause, 1=Pause
+Opt("TrayIconDebug", 0) ;0=no info, 1=debug line info
+Opt("TrayIconHide", 1) ;0=show, 1=hide tray icon
+
 #include "_utils.au3"
 #include "_metro.au3"
 
 Global $runned = True	;Флаг активности бота
-Global $ver = "0.1"		;Версия скрипта
+Global $ver = "0.1.1"		;Версия скрипта
 
 Main()
 Exit
@@ -14,6 +18,17 @@ Func Main()
    DebugPrnt ("Gold: " & $metro_var_gold & "; exp: " & $metro_var_xp & "; Energy: " & $metro_var_energy & ".")
    
    While $runned
+	  IF $metro_var_NotFinishedFight = true then 
+		 _DebugOut ("Обнаружена не завершенная битва на арене!!!")
+		 $fight = Metro_ArenaStop()
+		 if @error<>0 then 
+			DebugPrnt ("Cannot close fight!")
+		 Else
+			DebugPrnt ("Fight in previous session closed!")
+			$metro_var_NotFinishedFight = False
+		 EndIf
+	  EndIf
+	  
 	  IF NOT IsFightTimeout() Then
 		 PlayArena()
 	  Else

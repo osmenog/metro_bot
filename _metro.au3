@@ -18,6 +18,7 @@ Global $metro_var_level = 0			;Уровень
 Global $metro_var_energy = 0		;Оставшаяся энергия
 Global $metro_var_ratio = 0			;Количетво Побед
 Global $metro_var_ArenaTimer = 0	;Таймштамп последней битвы на арене
+Global $metro_var_NotFinishedFight = False
 
 ; #FUNCTION# ;===============================================================================
 ; Name...........: Metro_Init
@@ -92,6 +93,9 @@ Func _metro_cacheData()
 	  $metro_var_energy = $player[28][1]
 	  local $player_stat = $player[29][1]
 	  $metro_var_ArenaTimer = $player_stat[14][1]
+	  local $fray = $cached_data[7][1]
+	  local $foe = $fray[2][1]
+	  if IsArray($foe) and (UBound($foe) <> 0) then $metro_var_NotFinishedFight = true
 	  ;---
    EndIf
    $cached=true
