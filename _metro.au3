@@ -1,5 +1,7 @@
-#include "Crypt.au3"
-#include "Array.au3"
+#AutoIt3Wrapper_AU3Check_Parameters=-d -w 1 -w 2 -w 3 -w- 4 -w 5 -w 6 -w- 7
+#include-once
+#include <Crypt.au3>
+#include <Array.au3>
 #include "_http_wrapper.au3"
 #include "JSON.au3"
 
@@ -12,19 +14,18 @@ global $json_data
 Global $cached_data
 Global $cached = false
 
-Global $metro_var_gold = 0			;Деньги
-Global $metro_var_xp = 0			;Опыт
-Global $metro_var_level = 0			;Уровень
-Global $metro_var_energy = 0		;Оставшаяся энергия
-Global $metro_var_ratio = 0			;Количетво Побед
-Global $metro_var_ArenaTimer = 0	;Таймштамп последней битвы на арене
-Global $metro_var_NotFinishedFight = False
-Global $metro_var_servertime = 0
+Global $metro_var_gold = 0					;Деньги
+Global $metro_var_xp = 0					;Опыт
+Global $metro_var_level = 0					;Уровень
+Global $metro_var_energy = 0				;Оставшаяся энергия
+Global $metro_var_ratio = 0					;Количетво Побед
+Global $metro_var_ArenaTimer = 0			;Таймштамп последней битвы на арене
+Global $metro_var_NotFinishedFight = False	;Завершени ли предыдущая битва или нет
+Global $metro_var_servertime = 0			;Текущее время на сервере
 
-;~ Global $metro_statistics_gold = 0
-;~ Global $metro_statistics_xp = 0
-;~ Global $metro_statistics_wins = 0
-;~ Global $metro_statistics_loses = 0
+Global $metro_var_job_finished = 0			;Время окончания выполнения работы
+Global $metro_var_job_num = 0				;Номер работы
+Global $metro_var_job_goldrew = 0			;Денежное вознаграждение за выполнение работы
 
 ; #FUNCTION# ;===============================================================================
 ; Name...........: Metro_Init
@@ -98,10 +99,16 @@ Func _metro_cacheData()
 	  $metro_var_energy = $player[28][1]
 	  local $player_stat = $player[29][1]
 	  $metro_var_ArenaTimer = $player_stat[14][1]
+	  
 	  local $fray = $cached_data[7][1]
 	  local $foe = $fray[2][1]
 	  if IsArray($foe) and (UBound($foe) <> 0) then $metro_var_NotFinishedFight = true
 	  $metro_var_servertime = $cached_data[13][1]
+	  
+	  local $jobs = $cached_data[10][1]
+	  $metro_var_job_finished = $jobs[1][1]
+	  $metro_var_job_num = $jobs[2][1]
+	  $metro_var_job_goldrew = $jobs[3][1]
 	  ;---
    EndIf
    $cached=true
@@ -307,3 +314,47 @@ Func IsFightTimeout()
 	  Return True
    EndIf
 EndFunc ;==>IsFightTimeout
+
+Func IsJobFinished()
+   if (not $cached) then Return 0
+   
+   if $metro_var_job_finished < _TimeGetStamp() then ;Если время окончания работы меньше текущего
+	  Return True
+   Else
+	  SetExtended ($metro_var_job_finished-_TimeGetStamp()) ; Возвращаем разницу по времени 
+	  Return False
+   EndIf
+EndFunc
+
+Func Metro_JobTake($iJobNum = 2) ;Взять работу
+   local $params[2] = ["sess="&$p_sess, "job="&$iJobNum]
+   local $recv_data = _run_method ("jobs.take", $params)
+   if @error then return SetError (1, 0, "") ; 1-Ошибка подключения
+   
+   local $job_data = _JSONDecode($recv_data)
+   if (@error<>0) and (NOT IsArray($job_data)) then 
+	  DebugPrnt ("Ошибка принятых данных: " & $_JSONErrorMessage)
+	  _DebugReportVar("$recv_data", $recv_data, True) ;На всякий случай, если JSONDecode вернет ошибку.
+	  return SetError (3, 0, "") ;Ошибка корректности данных - 3
+   EndIf
+   
+   If ($job_data[1][0] = "error") Then
+	  DebugPrnt ("Ошибка в ArenaStop. Вернулись неверные данные")
+	  _DebugReportVar ("arena_data",$job_data, True)
+	  Return SetError (2, $job_data[1][1], "")
+   EndIf
+   _ArrayDisplay ($job_data)
+   $job_data = $job_data[1][1]
+   $metro_var_job_finished = $job_data[1][1]
+   $metro_var_job_num = $job_data[2][1]
+   $metro_var_job_rew = $job_data[3][1]
+   
+   Return true
+EndFunc
+
+Func Metro_JobEarn() ;Завершить работу и получить награду
+   $metro_var_job_finished = 0
+   $metro_var_job_num = 0
+   $metro_var_job_rew = 0
+   return 
+EndFunc

@@ -1,5 +1,5 @@
 #include-once
-#include "WinHttp.au3"
+#include <WinHttp.au3>
 
 ;Параметры запроса
 Global const $host="78.46.92.245"

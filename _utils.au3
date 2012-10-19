@@ -1,6 +1,8 @@
+#include-once
 #include <Debug.au3>
 global $init_debug_session = False
 global $settings_savecache = 0
+global $SectionName = "stats_" & @YEAR & @MON & @MDAY & @HOUR & @MIN & @SEC
 
 Func _URIEncode($sData)
     ; Prog@ndy
@@ -105,13 +107,13 @@ Func SaveStatistics ($iGold = 0, $iExp = 0, $iWins = 0, $iLoses = 0)
 	  Return 
    EndIf
    
-   local $cur_gold = IniRead($sf, "stats", "gold", 0)
-   local $cur_exp = IniRead($sf, "stats", "xp", 0)
-   local $cur_wins = IniRead($sf, "stats", "wins", 0)
-   local $cur_loses = IniRead($sf, "stats", "loses", 0)
+   local $cur_gold = IniRead($sf, $SectionName, "gold", 0)
+   local $cur_exp = IniRead($sf, $SectionName, "xp", 0)
+   local $cur_wins = IniRead($sf, $SectionName, "wins", 0)
+   local $cur_loses = IniRead($sf, $SectionName, "loses", 0)
    
-   IniWrite ($sf, "stats", "gold", $cur_gold + $iGold)
-   IniWrite ($sf, "stats", "xp", $cur_exp + $iExp)
-   IniWrite ($sf, "stats", "wins", $cur_wins + $iWins)
-   IniWrite ($sf, "stats", "loses", $cur_loses + $iLoses)
+   IniWrite ($sf, $SectionName, "gold", $cur_gold + $iGold)
+   IniWrite ($sf, $SectionName, "xp", $cur_exp + $iExp)
+   IniWrite ($sf, $SectionName, "wins", $cur_wins + $iWins)
+   IniWrite ($sf, $SectionName, "loses", $cur_loses + $iLoses)
 EndFunc
