@@ -2,6 +2,7 @@
 #include-once
 #include <Crypt.au3>
 #include <Array.au3>
+#include "AssocArrays.au3"
 #include "_http_wrapper.au3"
 #include "JSON.au3"
 
@@ -14,53 +15,48 @@ global $json_data
 Global $cached_data
 Global $cached = false
 
-Global $metro_var_gold = 0					;Деньги
-Global $metro_var_xp = 0					;Опыт
-Global $metro_var_level = 0					;Уровень
-Global $metro_var_energy = 0				;Оставшаяся энергия
-Global $metro_var_ratio = 0					;Количетво Побед
-Global $metro_var_ArenaTimer = 0			;Таймштамп последней битвы на арене
-Global $metro_var_NotFinishedFight = False	;Завершени ли предыдущая битва или нет
-Global $metro_var_servertime = 0			;Текущее время на сервере
+Global $CacheArray
 
-Global $metro_var_job_finished = 0			;Время окончания выполнения работы
-Global $metro_var_job_num = 0				;Номер работы
-Global $metro_var_job_goldrew = 0			;Денежное вознаграждение за выполнение работы
+;~ Global $metro_var_gold = 0					;Деньги
+;~ Global $metro_var_xp = 0					;Опыт
+;~ Global $metro_var_level = 0					;Уровень
+;~ Global $metro_var_energy = 0				;Оставшаяся энергия
+;~ Global $metro_var_ratio = 0					;Количетво Побед
+;~ Global $metro_var_ArenaTimer = 0			;Таймштамп последней битвы на арене
+;~ Global $metro_var_NotFinishedFight = False	;Завершени ли предыдущая битва или нет
+;~ Global $metro_var_servertime = 0			;Текущее время на сервере
+
+;~ Global $metro_var_job_finished = 0			;Время окончания выполнения работы
+;~ Global $metro_var_job_num = 0				;Номер работы
+;~ Global $metro_var_job_goldrew = 0			;Денежное вознаграждение за выполнение работы
 
 ; #FUNCTION# ;===============================================================================
 ; Name...........: Metro_Init
 ; Description ...: Инициализирует подключение к серверу, и выполняет запрос "user.auth"
-; Syntax.........: Metro_Init ($hRequest, $sHeaders [, $iModifiers = Default ])
-; Parameters ....: $hRequest - Handle returned by _WinHttpOpenRequest function.
-;                  $sHeader - [optional] Header(s) to append to the request.
-;                  $iModifier - [optional] Contains the flags used to modify the semantics of this function. Default is $WINHTTP_ADDREQ_FLAG_ADD_IF_NEW.
-; Return values .: Success - Returns 1
-;                  Failure - Returns 0 and sets @error:
-;                  |1 - DllCall failed
+; Syntax.........: Metro_Init ()
+; Return values .: Успех - Возвращает True
+;                  Неудача - Возвращает False и устанавливает @error:
+;                  |1 - Ошибка инициализации http модуля
+;                  |2 - Ошибка авторизации metro_auth
+;                  |3 - Ошибка кеширования данных
 ;============================================================================================
 Func Metro_Init()
-   DebugPrnt ("[metro] initialization ...")
-     
+   DebugPrnt ("Начинаем инициализацию...")
    if NOT _http_init() Then 
-	  DebugPrnt ("[metro] http_init error")
-	  SetError (1)
-   ElseIf NOT _metro_auth() Then
-	  DebugPrnt ("[metro] metro_auth error")
-	  SetError (2)
+	  DebugPrnt ("Ошибка при инициализации HTTP протокола!!!")
+	  return SetError (1, 0, False)
+   ElseIf NOT Metro_Auth() Then
+	  DebugPrnt ("Ошибка при авторизации!!!")
+	  return SetError (2, 0, False)
    ElseIf NOT _metro_cacheData() Then
-	  DebugPrnt ("metro_cacheData error")
-	  SetError (3)
+	  DebugPrnt ("Ошибка при кешировании данных!!!")
+	  return SetError (3, 0, False)
    EndIf
      
-   if Not @error Then
-	  $p_sess = $cached_data[1][1]
-	  DebugPrnt ("[metro] initialization complete. SessionId: " & $p_sess)
-	  Return 1
-   Else
-	  DebugPrnt ("[metro] error on metro initialization. Exit programm.")
-	  Return @error
-   EndIf
-EndFunc	;==>_WinHttpAddRequestHeaders
+   $p_sess = $cached_data[1][1]
+   DebugPrnt ("Инициализация завершена! SessionId: " & $p_sess)
+   Return True
+EndFunc	;==>Metro_Init
 
 Func Metro_destruct()
    _http_destruct()
@@ -74,46 +70,72 @@ Func _AddSign (ByRef $p)
    _ArrayPush ($p, "auth=" & $sig)
 EndFunc
 
-Func _metro_auth()
+; #FUNCTION# ;===============================================================================
+; Name...........: Metro_Auth()
+; Description ...: Выполняет запрос "user.auth", возвращает полную информацию об игре
+; Syntax.........: Metro_Auth()
+; Return values .: Успех - Возвращает True и сохраняет полную информацию об игре в глобальную переменную $json_data
+;						 @extended - длина принятых  данных
+;                  Неудача - Возвращает False и устанавливает @error:
+;                  |1 - Ошибка подключения или в некорректность принятых данных
+;                  |2 - Ошибка авторизации
+;                          - В @extended записывается номер ошибки полученной с сервера
+;============================================================================================
+Func Metro_Auth()
    local $params[2] = ["pals=0", "lmenu=1"]
-      
    $json_data = _run_method("user.auth", $params)
+   if @error then return SetError (1, 0, False) ;Ошибка подключения
    
-   if @error then return SetError (1, 0, 0)
-	  
-   DebugPrnt ("[metro] Auth successful! Received " & StringLen ($json_data) & " bytes")
-   Return 1   
-EndFunc
+   local $tmp = StringLeft($json_data, 20)	;Берем 20 символов слева
+   $err = StringInStr ($tmp, "error")		;Ищем в подстроке строку "error"
+   if $err <> 0 then 						;Если подстрока найдена
+	  DebugPrnt ("Сервер возвратил ошибку: " & $json_data, 1)
+	  local $startpos = $err+5+2
+	  local $endpos = StringInStr($tmp, ",", 0, 1, $startpos)
+	  Local $err_num = StringMid ($tmp, $startpos, $endpos-$startpos)
+	  Return SetError (2, $err_num, False)
+   EndIf
+   SetExtended (StringLen ($json_data))
+   DebugPrnt ("Авторизация завершена! Принято " & @extended & " байт")
+   Return True
+EndFunc ;==> Metro_Auth
 
 Func _metro_cacheData()
-   DebugPrnt ("[metro] Start caching of data...")
+   DebugPrnt ("Кешируем данные...", 1)
    local $t1 = TimerInit()
    if (not $cached) Then 
 	  $cached_data = _JSONDecode ($json_data)
 	  ;---
+	  AssocArrayCreate ($CacheArray,10) ;Создаем ассоциативный массив размером 10 элементов
+	  ;Получаем информацию о игроке
 	  local $player = $cached_data[4][1]
-	  $metro_var_gold = $player[13][1]
-	  $metro_var_xp = $player[17][1]
-	  $metro_var_level = $player[19][1]
-	  $metro_var_ratio = $player[20][1]
-	  $metro_var_energy = $player[28][1]
-	  local $player_stat = $player[29][1]
-	  $metro_var_ArenaTimer = $player_stat[14][1]
+	  AssocArrayAssign($CacheArray, "gold", $player[13][1])
+	  AssocArrayAssign($CacheArray, "xp", $player[17][1])
+	  AssocArrayAssign($CacheArray, "level", $player[19][1])
+	  AssocArrayAssign($CacheArray, "ratio", $player[20][1])
+	  AssocArrayAssign($CacheArray, "energy", $player[28][1])
 	  
+	  local $player_stat = $player[29][1]
+	  AssocArrayAssign($CacheArray, "arenatimer", $player_stat[14][1])
+	  	  
 	  local $fray = $cached_data[7][1]
 	  local $foe = $fray[2][1]
-	  if IsArray($foe) and (UBound($foe) <> 0) then $metro_var_NotFinishedFight = true
-	  $metro_var_servertime = $cached_data[13][1]
+	  
+	  AssocArrayAssign($CacheArray, "isfight", False)
+	  if IsArray($foe) and (UBound($foe) <> 0) then AssocArrayAssign($CacheArray, "isfight", True)
+	  AssocArrayAssign($CacheArray, "servertime", $cached_data[13][1])
 	  
 	  local $jobs = $cached_data[10][1]
-	  $metro_var_job_finished = $jobs[1][1]
-	  $metro_var_job_num = $jobs[2][1]
-	  $metro_var_job_goldrew = $jobs[3][1]
+	  AssocArrayAssign($CacheArray, "job_finished", $jobs[1][1])
+	  AssocArrayAssign($CacheArray, "job_num", $jobs[2][1])
+	  AssocArrayAssign($CacheArray, "job_goldrew", $jobs[3][1])
+	  
+	  ;AssocArrayDisplay ($CacheArray)
 	  ;---
    EndIf
    $cached=true
    Local $t2 = TimerDiff($t1)
-   DebugPrnt ("[metro] Cached received data in " & $t2 & " ms.")
+   DebugPrnt ("Кеширование завершено за " & $t2 & " мс!", 1)
    Return 1
 EndFunc
 
@@ -197,8 +219,7 @@ Func Metro_ArenaFight($sOpponentID)
    ;Формируем возвращаемый массив
    local $player = $arena_data[1][1]
    local $stat = $player[3][1]
-   $metro_var_ArenaTimer = $stat[1][1]
-      
+   AssocArrayAssign ($CacheArray, "arenatimer", $stat[1][1])
    local $fray = $arena_data[2][1]
    local $rew = $fray[6][1]
    local $resp_array[3] = [ $fray[1][1], $rew[1][1], $rew[2][1] ]
@@ -251,9 +272,9 @@ Func Metro_ArenaStop()
    ;If Not _ArrayDisplay ($player) then ReportVar ("$player", $player, True)
    local $resp_array[3] = [ $player[1][1], $player[2][1], $player[3][1] ]
    
-   $metro_var_gold = $resp_array[0]
-   $metro_var_xp = $resp_array[1]
-   $metro_var_ratio = $resp_array[2]
+   AssocArrayAssign($CacheArray, "gold", $resp_array[0])
+   AssocArrayAssign($CacheArray, "xp", $resp_array[1])
+   AssocArrayAssign($CacheArray, "ratio", $resp_array[2])
    
    return $resp_array
 EndFunc ;==>Metro_ArenaStop
@@ -307,54 +328,99 @@ Func IsFightTimeout()
    if (not $cached) then Return 0
    
    local $currenttime = _TimeGetStamp()
-   if $currenttime > $metro_var_ArenaTimer then 
+   local $arenatime = AssocArrayGet($CacheArray, "arenatimer") 
+   
+   if $currenttime > $arenatime then 
 	  Return False
    Else
-	  SetExtended ($metro_var_ArenaTimer)
+	  SetExtended ($arenatime)
 	  Return True
    EndIf
 EndFunc ;==>IsFightTimeout
 
+#region "Работа"
 Func IsJobFinished()
    if (not $cached) then Return 0
    
-   if $metro_var_job_finished < _TimeGetStamp() then ;Если время окончания работы меньше текущего
+   local $ts = _TimeGetStamp()
+   local $jf = AssocArrayGet($CacheArray, "job_finished") 
+   
+   if $jf < $ts then ;Если время окончания работы меньше текущего
 	  Return True
    Else
-	  SetExtended ($metro_var_job_finished-_TimeGetStamp()) ; Возвращаем разницу по времени 
+	  SetExtended ($jf-$ts) ; Возвращаем разницу по времени 
 	  Return False
    EndIf
 EndFunc
 
-Func Metro_JobTake($iJobNum = 2) ;Взять работу
-   local $params[2] = ["sess="&$p_sess, "job="&$iJobNum]
+; #FUNCTION# ;===============================================================================
+; Name...........: Metro_JobTake
+; Description ...: Начать выполнять указанную работу
+; Syntax.........: Metro_JobTake ([$iDefaultJob = 2])
+; Parameters ....: $iDefaultJob - Номер выполняемой работы.
+; Return values .: Успех - Возвращает True.
+;                  Неудача - Возвращает False, и устанавливает @error:
+;                  |1 - Ошибка подключения
+;                  |2 - %%%%%%%%%%%%%%%%%%%%%%%%%%%%
+;                  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+;============================================================================================
+Func Metro_JobTake($iDefaultJob = 2) ;Взять работу
+   local $params[2] = ["sess="&$p_sess, "job="&$iDefaultJob]
    local $recv_data = _run_method ("jobs.take", $params)
-   if @error then return SetError (1, 0, "") ; 1-Ошибка подключения
+   if @error then return SetError (1, 0, False) ; 1-Ошибка подключения
    
    local $job_data = _JSONDecode($recv_data)
    if (@error<>0) and (NOT IsArray($job_data)) then 
 	  DebugPrnt ("Ошибка принятых данных: " & $_JSONErrorMessage)
 	  _DebugReportVar("$recv_data", $recv_data, True) ;На всякий случай, если JSONDecode вернет ошибку.
-	  return SetError (3, 0, "") ;Ошибка корректности данных - 3
+	  return SetError (3, 0, False) ;Ошибка корректности данных - 3
    EndIf
    
    If ($job_data[1][0] = "error") Then
 	  DebugPrnt ("Ошибка в ArenaStop. Вернулись неверные данные")
 	  _DebugReportVar ("arena_data",$job_data, True)
-	  Return SetError (2, $job_data[1][1], "")
+	  Return SetError (2, $job_data[1][1], False)
    EndIf
-   _ArrayDisplay ($job_data)
+  
    $job_data = $job_data[1][1]
-   $metro_var_job_finished = $job_data[1][1]
-   $metro_var_job_num = $job_data[2][1]
-   $metro_var_job_rew = $job_data[3][1]
+   AssocArrayAssign($CacheArray, "job_finished", $job_data[1][1])
+   AssocArrayAssign($CacheArray, "job_num", $job_data[2][1])
+   AssocArrayAssign($CacheArray, "job_goldrew", $job_data[3][1])
    
    Return true
 EndFunc
 
 Func Metro_JobEarn() ;Завершить работу и получить награду
-   $metro_var_job_finished = 0
-   $metro_var_job_num = 0
-   $metro_var_job_rew = 0
-   return 
+   local $params[1] = ["sess="&$p_sess]
+   local $recv_data = _run_method ("jobs.earn", $params)
+   if @error then return SetError (1, 0, False) ; 1-Ошибка подключения
+   
+   local $job_data = _JSONDecode($recv_data)
+   if (@error<>0) and (NOT IsArray($job_data)) then 
+	  DebugPrnt ("Ошибка принятых данных: " & $_JSONErrorMessage)
+	  _DebugReportVar("$recv_data", $recv_data, True) ;На всякий случай, если JSONDecode вернет ошибку.
+	  return SetError (3, 0, False) ;Ошибка корректности данных - 3
+   EndIf
+   
+   If ($job_data[1][0] = "error") Then
+	  DebugPrnt ("Ошибка в JobEarn. Вернулись неверные данные")
+	  _DebugReportVar ("$job_data",$job_data, True)
+	  Return SetError (2, $job_data[1][1], False)
+   EndIf
+   
+   AssocArrayAssign($CacheArray, "job_finished", 0)
+   AssocArrayAssign($CacheArray, "job_num", 0)
+   AssocArrayAssign($CacheArray, "job_goldrew", 0)
+   return True
 EndFunc
+
+Func AssocArrayDisplay (ByRef $avArray)
+   $asKeys = AssocArrayKeys($avArray)
+
+   $sName = ""
+   For $iCount = 0 To UBound($asKeys) - 1
+	  $sName &= "[" & $asKeys[$iCount] & "] = " & AssocArrayGet($avArray, $asKeys[$iCount]) & @CRLF
+   Next
+   DebugPrnt ($sName)
+EndFunc
+#endregion

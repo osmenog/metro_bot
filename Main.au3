@@ -4,6 +4,8 @@ Opt("TrayIconHide", 1) ;0=show, 1=hide tray icon
 
 #include "_utils.au3"
 #include "_metro.au3"
+#include "AssocArrays.au3"
+
 
 Global $runned = True	;Флаг активности бота
 Global $ver = "0.2"		;Версия скрипта
@@ -15,35 +17,38 @@ Func Main()
    LoadSettings()
    DebugPrnt ("Started...")
    Metro_init()
-   DebugPrnt ("Gold: " & $metro_var_gold & "; exp: " & $metro_var_xp & "; energy: " & $metro_var_energy & ".")
-   DebugPrnt ("Servertime: " & $metro_var_servertime & ", current: " & _TimeGetStamp() & ", diff: " & (_TimeGetStamp()-$metro_var_servertime))
+   DebugPrnt ("Gold: " & AssocArrayGet($CacheArray, "gold")  & "; exp: " & AssocArrayGet($CacheArray, "xp")  & "; energy: " & AssocArrayGet($CacheArray, "energy")  & ".")
+   local $st = AssocArrayGet($CacheArray, "servertime")
+   local $ts = _TimeGetStamp()
+   DebugPrnt ("Servertime: " & $st & ", current: " & $ts & ", diff: " & ($ts-$st))
    While $runned
 	  ;Проверяем взята ли работа, выполненна ли она, и получаем вознаграждение
 	  IF IsJobFinished() then 
-		 if ($metro_var_job_num = 0) and ($metro_var_job_finished = 0) then 
+		 if (AssocArrayGet($CacheArray, "job_num") = 0) and _ 
+		 (AssocArrayGet($CacheArray, "job_finished") = 0) then 
 			Metro_JobTake (2)	;Взять вторую работу
 			If @error=0 then 
-			   DebugPrnt ("Начинаю работу №" & $metro_var_job_num & ". Окончание в " & $metro_var_job_finished & ".")
+			   DebugPrnt ("Начинаю работу №" & AssocArrayGet($CacheArray, "job_num") & ". Окончание в " & AssocArrayGet($CacheArray, "job_finished") & ".")
 			Else
 			   DebugPrnt ("Ошибка при взятии работы")
 			EndIf
 		 Else
 			Metro_JobEarn()		;Получить вознаграждение
-			DebugPrnt ("Работа завершена. Получили вознаграждение. <ПОКА НЕ РАБОТАЕТ!>")
+			DebugPrnt ("Работа завершена. Получили вознаграждение.")
 		 EndIf
 	  Else
 		 ;DebugPrnt ("Выполняется работа №" & $metro_var_job_num & ". Окончание через " & $metro_var_job_finished-_TimeGetStamp() & ".")
 	  EndIf
 	  
 	  ;Проверяем была ли завершена предыдущая битва на арене
-	  IF $metro_var_NotFinishedFight = true then 
+	  IF AssocArrayGet($CacheArray, "isfight") then 
 		 _DebugOut ("Обнаружена не завершенная битва на арене!!!")
 		 $fight = Metro_ArenaStop()
 		 if @error<>0 then 
-			DebugPrnt ("Cannot close fight!")
+			DebugPrnt ("Ошибка!!! Не могу завершить битву.")
 		 Else
-			DebugPrnt ("Fight in previous session closed!")
-			$metro_var_NotFinishedFight = False
+			DebugPrnt ("Открытая ранее битва завершена!")
+			AssocArrayAssign($CacheArray, "isfight", False)
 		 EndIf
 	  EndIf
 	  
@@ -54,6 +59,8 @@ Func Main()
 		 $pausetime = @extended - _TimeGetStamp() + 15
 		 DebugPrnt ("Wait for timeout: " & $pausetime & " seconds...")
 	  EndIf
+	  
+	  AssocArraySave($CacheArray, @ScriptDir & "\AssocArrayTest.txt")
 	  
 	  ;Выдерживаем паузу между запросами
 	  Sleep (10000)
@@ -80,7 +87,7 @@ Func PlayArena()
 	  DebugPrnt ("error on Metro_ArenaFight: " & @error & " ex: " & @extended)
 	  if @extended="1202" then 
 		 DebugPrnt ("need timeout 5 min")
-		 $metro_var_ArenaTimer = _TimeGetStamp() + 300
+		 AssocArrayAssign($CacheArray, "arenatimer", _TimeGetStamp() + 300)
 		 Return 0
 	  EndIf
 	  $runned = false
