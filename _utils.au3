@@ -35,7 +35,7 @@ Func _URIDecode($sData)
     Return BinaryToString(StringToBinary($aData[1],1),4)
 EndFunc
  
-Func DebugPrnt ($str)
+Func DebugPrnt ($str, $itabs = 0)
    ;Если функция вызывается впервые, то инициализируем отладочную сессию
    if $init_debug_session = False then 
 	 
@@ -43,8 +43,14 @@ Func DebugPrnt ($str)
    EndIf
    
    If StringLen($str)=0 then Return
+   
+   local $tab = ""
+   for $i=0 to $itabs
+	  $tab &= @TAB
+   Next
+   
    Local $msg
-   $msg="[" & @HOUR & ":" & @MIN & ":" & @SEC & "." & @MSEC & "]" & @TAB & $str
+   $msg="[" & @HOUR & ":" & @MIN & ":" & @SEC & "." & @MSEC & "]" & $tab & $str
    _DebugOut ($msg)
 EndFunc
 
