@@ -8,25 +8,41 @@ Opt("TrayIconHide", 1) ;0=show, 1=hide tray icon
 
 
 Global $runned = True	;Флаг активности бота
-Global $ver = "0.2"		;Версия скрипта
+Global Const $ver = "0.3"		;Версия скрипта
 
 Main()
 Exit
 
 Func Main()
    LoadSettings()
-   DebugPrnt ("Started...")
+   DebugPrnt ("Started v" & $ver & " ...")
+   
    Metro_init()
-   DebugPrnt ("Gold: " & AssocArrayGet($CacheArray, "gold")  & "; exp: " & AssocArrayGet($CacheArray, "xp")  & "; energy: " & AssocArrayGet($CacheArray, "energy")  & ".")
+   
+   DebugPrnt ("Информация о профиле")
+   DebugPrnt ("Деньги: " & AssocArrayGet($CacheArray, "gold") & _
+			   "; Опыт: " & AssocArrayGet($CacheArray, "xp") & _
+			   "; Энергия: " & AssocArrayGet($CacheArray, "energy") & ".", 1)
+   
+   if NOT IsJobFinished() then 
+	  DebugPrnt ("Выполняется работа №" & AssocArrayGet($CacheArray, "job_num") & _
+			     ". Окончание в " & AssocArrayGet($CacheArray, "job_finished") & "." & _
+				 "Награда: " & AssocArrayGet($CacheArray, "job_goldrew") & ".", 1)
+   Else
+	  DebugPrnt ("В данный момент работа не выполняется", 1)
+   EndIf
+	  
+   
    local $st = AssocArrayGet($CacheArray, "servertime")
    local $ts = _TimeGetStamp()
-   DebugPrnt ("Servertime: " & $st & ", current: " & $ts & ", diff: " & ($ts-$st))
+   DebugPrnt ("Время сервера: " & $st & ". Время клиента: " & $ts & ". Разность: " & ($ts-$st), 1)
+   
    While $runned
 	  ;Проверяем взята ли работа, выполненна ли она, и получаем вознаграждение
 	  IF IsJobFinished() then 
 		 if (AssocArrayGet($CacheArray, "job_num") = 0) and _ 
 		 (AssocArrayGet($CacheArray, "job_finished") = 0) then 
-			Metro_JobTake (2)	;Взять вторую работу
+			Metro_JobTake (2)	;Взять работу
 			If @error=0 then 
 			   DebugPrnt ("Начинаю работу №" & AssocArrayGet($CacheArray, "job_num") & ". Окончание в " & AssocArrayGet($CacheArray, "job_finished") & ".")
 			Else
@@ -59,8 +75,6 @@ Func Main()
 		 $pausetime = @extended - _TimeGetStamp() + 15
 		 DebugPrnt ("Wait for timeout: " & $pausetime & " seconds...")
 	  EndIf
-	  
-	  AssocArraySave($CacheArray, @ScriptDir & "\AssocArrayTest.txt")
 	  
 	  ;Выдерживаем паузу между запросами
 	  Sleep (10000)

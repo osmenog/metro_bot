@@ -4,6 +4,10 @@ global $init_debug_session = False
 global $settings_savecache = 0
 global $SectionName = "stats_" & @YEAR & @MON & @MDAY & @HOUR & @MIN & @SEC
 
+local const $SaveCachePath = @ScriptDir & "\logs\"
+local const $DebugLogPath = @ScriptDir & "\logs\Debug.log"
+local const $StatisticsLogPath = @ScriptDir & "\logs\Statistics.log"
+
 Func _URIEncode($sData)
     ; Prog@ndy
     Local $aData = StringSplit(BinaryToString(StringToBinary($sData,4),1),"")
@@ -67,7 +71,7 @@ Func LoadSettings()
    local $iDebugFlag = IniRead($sf, "debug", "flag","4")
    $settings_savecache = IniRead($sf, "debug", "savecache", 0)
 
-   _DebugSetup("Metro bot debug log", True, $iDebugFlag, @ScriptDir & "\debug.log")
+   _DebugSetup("Metro bot debug log", True, $iDebugFlag, $DebugLogPath)
    
    If NOT FileExists ($sf) then 
 	  DebugPrnt ("Settings.ini not found! Terminate!")
@@ -78,7 +82,7 @@ Func LoadSettings()
 EndFunc
 
 Func SaveCache(ByRef $text, $filename = "cache.txt")
-   local $file = FileOpen($filename, 10) ; which is similar to 2 + 8 (erase + create dir)
+   local $file = FileOpen($SaveCachePath & $filename, 10) ; which is similar to 2 + 8 (erase + create dir)
    FileWrite ($file, $text)
    FileClose($file)
 EndFunc
@@ -106,20 +110,13 @@ Func _TimeGetStamp()
 	 EndFunc
 	 
 Func SaveStatistics ($iGold = 0, $iExp = 0, $iWins = 0, $iLoses = 0)
-   local $sf = @ScriptDir & "\settings.ini"
+   local $cur_gold = IniRead($StatisticsLogPath, $SectionName, "gold", 0)
+   local $cur_exp = IniRead($StatisticsLogPath, $SectionName, "xp", 0)
+   local $cur_wins = IniRead($StatisticsLogPath, $SectionName, "wins", 0)
+   local $cur_loses = IniRead($StatisticsLogPath, $SectionName, "loses", 0)
    
-   If NOT FileExists ($sf) then 
-	  _DebugOut ("Отсутствует файл settings.ini!")
-	  Return 
-   EndIf
-   
-   local $cur_gold = IniRead($sf, $SectionName, "gold", 0)
-   local $cur_exp = IniRead($sf, $SectionName, "xp", 0)
-   local $cur_wins = IniRead($sf, $SectionName, "wins", 0)
-   local $cur_loses = IniRead($sf, $SectionName, "loses", 0)
-   
-   IniWrite ($sf, $SectionName, "gold", $cur_gold + $iGold)
-   IniWrite ($sf, $SectionName, "xp", $cur_exp + $iExp)
-   IniWrite ($sf, $SectionName, "wins", $cur_wins + $iWins)
-   IniWrite ($sf, $SectionName, "loses", $cur_loses + $iLoses)
+   IniWrite ($StatisticsLogPath, $SectionName, "gold", $cur_gold + $iGold)
+   IniWrite ($StatisticsLogPath, $SectionName, "xp", $cur_exp + $iExp)
+   IniWrite ($StatisticsLogPath, $SectionName, "wins", $cur_wins + $iWins)
+   IniWrite ($StatisticsLogPath, $SectionName, "loses", $cur_loses + $iLoses)
 EndFunc
