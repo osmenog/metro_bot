@@ -3,7 +3,6 @@
 
 ;Параметры запроса
 Global const $host="78.46.92.245"
-Global const $uri="/metro/vk/121003/vk_metro.php"
 Global const $user_agent="Mozilla/5.0 (Windows NT 5.1) AppleWebKit/537.1 (KHTML, like Gecko) Chrome/21.0.1180.89 Safari/537.1"
 Global const $referer="http://cs309329.vk.com/u74657/9ec7251c212a9a.zip"
 
@@ -30,7 +29,7 @@ EndFunc
 
 Func __http_send(ByRef $hRequest, $params)
    local $text2 = _URIEncode(_ArrayToString ($params,"&"));
-   $hRequest = _WinHttpOpenRequest($hConnect, "POST", $uri, Default, $referer)
+   $hRequest = _WinHttpOpenRequest($hConnect, "POST", $RequestURI, Default, $referer)
    _WinHttpAddRequestHeaders($hRequest, "Origin: http://cs309329.vk.com")
    _WinHttpAddRequestHeaders($hRequest, "Content-Type: application/x-www-form-urlencoded")
    _WinHttpAddRequestHeaders($hRequest, "Accept-Encoding: gzip,deflate,sdch")

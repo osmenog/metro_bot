@@ -1,35 +1,32 @@
 #AutoIt3Wrapper_AU3Check_Parameters=-d -w 1 -w 2 -w 3 -w- 4 -w 5 -w 6 -w- 7
 #include-once
-#include <Crypt.au3>
 #include <Array.au3>
-#include "AssocArrays.au3"
 #include "_http_wrapper.au3"
 #include "JSON.au3"
 
-global $sSession
-global $sViewer
-global $p_key
-Global $p_sess=0
+#region Объявление глобальных констант
+;Параметры сессии
+global $sSession	;Параметр sid, передаваемый flash-приложению.
+global $sViewer		;Вконтакте ID пользователя.
+global $p_key		;Параметр auth_key,  передаваемый flash-приложению.
+Global $p_sess=0	;Номер сессии, возвращаемый от сервера при авторизации.
 
-global $json_data
-Global $cached_data
-Global $cached = false
+;Параметры данных
+global $json_data		;Многомерный массив хранящий игровые данные, полученные при авторизации, и преобразованные из JSON.
+Global $cached = false 	;Флаг означающий: был ли создан локальный экземпляр игровых данных или нет
+Global $CacheArray		;Массив, содержащий локальную копию игровых данных.
+Global $cached_data		
 
-Global $CacheArray
+;Параметры подключения
+Global const $AppVersion = "121022" ;Текущая версия приложения
+Global const $RequestURI = "/metro/vk/" & $AppVersion & "/vk_metro.php" ;Адрес для HTTP запросов
 
-;~ Global $metro_var_gold = 0					;Деньги
-;~ Global $metro_var_xp = 0					;Опыт
-;~ Global $metro_var_level = 0					;Уровень
-;~ Global $metro_var_energy = 0				;Оставшаяся энергия
-;~ Global $metro_var_ratio = 0					;Количетво Побед
-;~ Global $metro_var_ArenaTimer = 0			;Таймштамп последней битвы на арене
-;~ Global $metro_var_NotFinishedFight = False	;Завершени ли предыдущая битва или нет
-;~ Global $metro_var_servertime = 0			;Текущее время на сервере
-
-;~ Global $metro_var_job_finished = 0			;Время окончания выполнения работы
-;~ Global $metro_var_job_num = 0				;Номер работы
-;~ Global $metro_var_job_goldrew = 0			;Денежное вознаграждение за выполнение работы
-
+;Состояния
+global const $JOB_NOTEARN = 0
+global const $JOB_ACTIVE = 1
+global const $JOB_FINISHED = 2
+#endregion
+#region Основные функции
 ; #FUNCTION# ;===============================================================================
 ; Name...........: Metro_Init
 ; Description ...: Инициализирует подключение к серверу, и выполняет запрос "user.auth"
@@ -46,8 +43,16 @@ Func Metro_Init()
 	  DebugPrnt ("Ошибка при инициализации HTTP протокола!!!")
 	  return SetError (1, 0, False)
    ElseIf NOT Metro_Auth() Then
-	  DebugPrnt ("Ошибка при авторизации!!!")
-	  return SetError (2, 0, False)
+	  local $err = @extended
+	  Switch $err
+		 Case "1290"
+			DebugPrnt ("Ошибка #" & $err & ". Видимо протокол устарел, нужно обновить версию!!!")
+		 Case "1202"
+			DebugPrnt ("Ошибка #" & $err & ". Нарушение проверки подлинности, нужно сменить sid и auth_key!!!")
+		 Case Else
+			DebugPrnt ("Ошибка #" & $err & " при авторизации!!!")
+	  EndSwitch
+	  return SetError (2, $err, False)
    ElseIf NOT _metro_cacheData() Then
 	  DebugPrnt ("Ошибка при кешировании данных!!!")
 	  return SetError (3, 0, False)
@@ -60,14 +65,6 @@ EndFunc	;==>Metro_Init
 
 Func Metro_destruct()
    _http_destruct()
-EndFunc
-
-Func _AddSign (ByRef $p)
-   _ArraySort ($p)
-   _Crypt_Startup()
-   local $sig= StringLower (StringTrimLeft(_Crypt_HashData(_ArrayToString ($p,"") & $p_key, $CALG_MD5),2))
-   _Crypt_Shutdown()
-   _ArrayPush ($p, "auth=" & $sig)
 EndFunc
 
 ; #FUNCTION# ;===============================================================================
@@ -139,7 +136,43 @@ Func _metro_cacheData()
    Return 1
 EndFunc
 
-#region "Функции для работы с ареной"
+; #FUNCTION# ;===============================================================================
+; Name...........: _run_method
+; Description ...: Подготавливает и отправляет запрос за сервер. 
+; Syntax.........: _run_method ($sMethod, $aParams)
+; Parameters ....: $sMethod - Тип выполняемой команды.
+;                  $aParams - Массив, содержищий в себе дополнительные параметры для запроса.
+; Return values .: Успех - Возвращается ответ на запрос в текстовом виде
+;                        - @extended содержит количество принятых байт
+;                  Неудача - Возвращается пустая строка "" и @error:
+;                  |1 - Ошибка подключения
+;                  |2 - Ошибка входного параметра
+;============================================================================================
+Func _run_method ($sMethod, $aParams)
+   local $params[1]
+   _ArrayAdd ($params, "session=" & $sSession)
+   _ArrayAdd ($params, "method=" & $sMethod)
+   _ArrayAdd ($params, "user=" & $sViewer)
+   _ArrayAdd ($params, "hash=" & Int(Random (Default, 4294967295)))
+   
+   If (IsArray ($aParams)) AND (UBound($aParams) <> 0) then 
+	  _ArrayConcatenate ($params, $aParams)
+   Else
+	  return SetError (2,0,"") ; Ошибка входных данных
+   EndIf
+   
+   _AddSign ($params) ;Добавляем подпись
+   local $recv_data = _http_SendAndReceive($params)
+   
+   if @error then return SetError (1, 0, "")
+   SetExtended (StringLen ($recv_data))
+   
+   if $settings_savecache = 1 then SaveCache ($recv_data, "cache_" & $sMethod & ".txt") ;Сохраняем принятые данные в кэш
+	  
+   return $recv_data
+EndFunc	;==>_run_method
+#endregion
+#region Функции для работы с ареной
 ; #FUNCTION# ;===============================================================================
 ; Name...........: Metro_OpenArena
 ; Description ...: Выполняет функцию открытия арены, и получения информации о сопернике
@@ -278,43 +311,6 @@ Func Metro_ArenaStop()
    
    return $resp_array
 EndFunc ;==>Metro_ArenaStop
-#endregion
-
-; #FUNCTION# ;===============================================================================
-; Name...........: _run_method
-; Description ...: Подготавливает и отправляет запрос за сервер. 
-; Syntax.........: _run_method ($sMethod, $aParams)
-; Parameters ....: $sMethod - Тип выполняемой команды.
-;                  $aParams - Массив, содержищий в себе дополнительные параметры для запроса.
-; Return values .: Успех - Возвращается ответ на запрос в текстовом виде
-;                        - @extended содержит количество принятых байт
-;                  Неудача - Возвращается пустая строка "" и @error:
-;                  |1 - Ошибка подключения
-;                  |2 - Ошибка входного параметра
-;============================================================================================
-Func _run_method ($sMethod, $aParams)
-   local $params[1]
-   _ArrayAdd ($params, "session=" & $sSession)
-   _ArrayAdd ($params, "method=" & $sMethod)
-   _ArrayAdd ($params, "user=" & $sViewer)
-   _ArrayAdd ($params, "hash=" & Int(Random (Default, 4294967295)))
-   
-   If (IsArray ($aParams)) AND (UBound($aParams) <> 0) then 
-	  _ArrayConcatenate ($params, $aParams)
-   Else
-	  return SetError (2,0,"") ; Ошибка входных данных
-   EndIf
-   
-   _AddSign ($params) ;Добавляем подпись
-   local $recv_data = _http_SendAndReceive($params)
-   
-   if @error then return SetError (1, 0, "")
-   SetExtended (StringLen ($recv_data))
-   
-   if $settings_savecache = 1 then SaveCache ($recv_data, "cache_" & $sMethod & ".txt") ;Сохраняем принятые данные в кэш
-	  
-   return $recv_data
-EndFunc	;==>_run_method
 
 ; #FUNCTION# ;===============================================================================
 ; Name...........: IsFightTimeout
@@ -337,22 +333,48 @@ Func IsFightTimeout()
 	  Return True
    EndIf
 EndFunc ;==>IsFightTimeout
+#endregion
 
-#region "Работа"
-Func IsJobFinished()
-   if (not $cached) then Return 0
-   
-   local $ts = _TimeGetStamp()
-   local $jf = AssocArrayGet($CacheArray, "job_finished") 
-   
-   if $jf < $ts then ;Если время окончания работы меньше текущего
-	  Return True
-   Else
-	  SetExtended ($jf-$ts) ; Возвращаем разницу по времени 
-	  Return False
-   EndIf
+#region Работа
+; #FUNCTION# ;===============================================================================
+; Name...........: Metro_JobStatus
+; Description ...: Получить информацию о текущей работе
+; Syntax.........: Metro_JobStatus()
+; Return values .: Успех - Возвращает массив:
+;                  [0] - состояние [0|1|2]
+;                      |0-работа не взята (JOB_NOTEARN)
+;                      |1-работа выполняется (JOB_ACTIVE)
+;                      |2-работа завершена, но не получена награда (JOB_FINISHED)
+;                  [1] - время окончания. Устанавливается в 0, если работа не взята
+;                  [2] - номер работы. Устанавливается в 0, если работа не взята
+;                  [3] - награда. Устанавливается в 0, если работа не взята
+;                  Неудача - Возвращает 0, и устанавливает @error:
+;                  1 - Ошибка %%%%%%%%%%%%%%%%%%%
+;============================================================================================
+Func Metro_JobStatus()
+   if (not $cached) then Return SetError (1, 0, 0)
+   local $ts = Number(_TimeGetStamp())
+   local $jf = Number(AssocArrayGet($CacheArray, "job_finished"))
+   Select
+	  case $jf=0 ;Работа не взята
+		 local $resp_array[4] = [$JOB_NOTEARN,0,0,0] 
+		 Return $resp_array
+	  case $ts<$jf ;Работа выполняется
+		 local $resp_array[4] = [$JOB_ACTIVE, _
+								 $jf, _
+								 Number(AssocArrayGet($CacheArray, "job_num")), _
+								 Number(AssocArrayGet($CacheArray, "job_goldrew"))]
+		 Return $resp_array
+	  case $ts>$jf ;Работа завершена
+		 local $resp_array[4] = [$JOB_FINISHED, _
+								 $jf, _
+								 Number(AssocArrayGet($CacheArray, "job_num")), _
+								 Number(AssocArrayGet($CacheArray, "job_goldrew"))]
+		 Return $resp_array
+	  case Else
+		 Return SetError (1, 0, 0)
+   EndSelect
 EndFunc
-
 ; #FUNCTION# ;===============================================================================
 ; Name...........: Metro_JobTake
 ; Description ...: Начать выполнять указанную работу
@@ -388,9 +410,15 @@ Func Metro_JobTake($iDefaultJob = 2) ;Взять работу
    AssocArrayAssign($CacheArray, "job_goldrew", $job_data[3][1])
    
    Return true
-EndFunc
-
-Func Metro_JobEarn() ;Завершить работу и получить награду
+EndFunc ; ==>Metro_JobTake
+; #FUNCTION# ;===============================================================================
+; Name...........: Metro_JobEarn
+; Description ...: Завершить работу и получить награду
+; Syntax.........: <%%%>
+; Parameters ....: <%%%>
+; Return values .: <%%%>
+;============================================================================================
+Func Metro_JobEarn()
    local $params[1] = ["sess="&$p_sess]
    local $recv_data = _run_method ("jobs.earn", $params)
    if @error then return SetError (1, 0, False) ; 1-Ошибка подключения
@@ -412,15 +440,6 @@ Func Metro_JobEarn() ;Завершить работу и получить награду
    AssocArrayAssign($CacheArray, "job_num", 0)
    AssocArrayAssign($CacheArray, "job_goldrew", 0)
    return True
-EndFunc
-
-Func AssocArrayDisplay (ByRef $avArray)
-   $asKeys = AssocArrayKeys($avArray)
-
-   $sName = ""
-   For $iCount = 0 To UBound($asKeys) - 1
-	  $sName &= "[" & $asKeys[$iCount] & "] = " & AssocArrayGet($avArray, $asKeys[$iCount]) & @CRLF
-   Next
-   DebugPrnt ($sName)
-EndFunc
+EndFunc ; ==>Metro_JobEarn
 #endregion
+
