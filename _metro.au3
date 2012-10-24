@@ -10,6 +10,7 @@ global $sSession	;Параметр sid, передаваемый flash-приложению.
 global $sViewer		;Вконтакте ID пользователя.
 global $p_key		;Параметр auth_key,  передаваемый flash-приложению.
 Global $p_sess=0	;Номер сессии, возвращаемый от сервера при авторизации.
+Global $auth_ts = 0
 
 ;Параметры данных
 global $json_data		;Многомерный массив хранящий игровые данные, полученные при авторизации, и преобразованные из JSON.
@@ -82,6 +83,8 @@ Func Metro_Auth()
    local $params[2] = ["pals=0", "lmenu=1"]
    $json_data = _run_method("user.auth", $params)
    if @error then return SetError (1, 0, False) ;Ошибка подключения
+   
+   $auth_ts = _TimeGetStamp()
    
    local $tmp = StringLeft($json_data, 20)	;Берем 20 символов слева
    $err = StringInStr ($tmp, "error")		;Ищем в подстроке строку "error"
@@ -230,6 +233,9 @@ EndFunc ;==>Metro_OpenArena
 ;                          - @extended возвращает номер ошибки полученную от сервера
 ;============================================================================================
 Func Metro_ArenaFight($sOpponentID)
+   ;Для отладки
+   ;DebugPrnt ("Текущий штамп: " & _TimeGetStamp() & ". Таймаут арены:" & AssocArrayGet ($CacheArray, "arenatimer"))
+   
    local $params[4] = ["foe="&$sOpponentID, "pay=0", "ctx=21", "sess="&$p_sess]
    local $recv_data = _run_method ("fray.start", $params)
    
@@ -326,7 +332,7 @@ Func IsFightTimeout()
    local $currenttime = _TimeGetStamp()
    local $arenatime = AssocArrayGet($CacheArray, "arenatimer") 
    
-   if $currenttime > $arenatime then 
+   if $currenttime > $arenatime + 10 then 
 	  Return False
    Else
 	  SetExtended ($arenatime)
@@ -380,11 +386,14 @@ EndFunc
 ; Description ...: Начать выполнять указанную работу
 ; Syntax.........: Metro_JobTake ([$iDefaultJob = 2])
 ; Parameters ....: $iDefaultJob - Номер выполняемой работы.
-; Return values .: Успех - Возвращает True.
-;                  Неудача - Возвращает False, и устанавливает @error:
-;                  |1 - Ошибка подключения
-;                  |2 - %%%%%%%%%%%%%%%%%%%%%%%%%%%%
-;                  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+; Return values .: Успех - Возвращает массив:
+;                  [0] - состояние [0|1|2]
+;                      |0-работа не взята (JOB_NOTEARN)
+;                      |1-работа выполняется (JOB_ACTIVE)
+;                      |2-работа завершена, но не получена награда (JOB_FINISHED)
+;                  [1] - время окончания. Устанавливается в 0, если работа не взята
+;                  [2] - номер работы. Устанавливается в 0, если работа не взята
+;                  [3] - награда. Устанавливается в 0, если работа не взята
 ;============================================================================================
 Func Metro_JobTake($iDefaultJob = 2) ;Взять работу
    local $params[2] = ["sess="&$p_sess, "job="&$iDefaultJob]
