@@ -1,5 +1,7 @@
 #include-once
 #include <Debug.au3>
+#include "AssocArrays.au3"
+#include <Crypt.au3>
 global $init_debug_session = False
 global $settings_savecache = 0
 global $SectionName = "stats_" & @YEAR & @MON & @MDAY & @HOUR & @MIN & @SEC
@@ -119,4 +121,22 @@ Func SaveStatistics ($iGold = 0, $iExp = 0, $iWins = 0, $iLoses = 0)
    IniWrite ($StatisticsLogPath, $SectionName, "xp", $cur_exp + $iExp)
    IniWrite ($StatisticsLogPath, $SectionName, "wins", $cur_wins + $iWins)
    IniWrite ($StatisticsLogPath, $SectionName, "loses", $cur_loses + $iLoses)
+EndFunc
+
+Func AssocArrayDisplay (ByRef $avArray)
+   $asKeys = AssocArrayKeys($avArray)
+
+   $sName = ""
+   For $iCount = 0 To UBound($asKeys) - 1
+	  $sName &= "[" & $asKeys[$iCount] & "] = " & AssocArrayGet($avArray, $asKeys[$iCount]) & @CRLF
+   Next
+   DebugPrnt ($sName)
+EndFunc
+
+Func _AddSign (ByRef $p)
+   _ArraySort ($p)
+   _Crypt_Startup()
+   local $sig= StringLower (StringTrimLeft(_Crypt_HashData(_ArrayToString ($p,"") & $p_key, $CALG_MD5),2))
+   _Crypt_Shutdown()
+   _ArrayPush ($p, "auth=" & $sig)
 EndFunc

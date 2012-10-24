@@ -6,56 +6,64 @@ Opt("TrayIconHide", 1) ;0=show, 1=hide tray icon
 #include "_metro.au3"
 #include "AssocArrays.au3"
 
+Global $runned = True		;Флаг активности бота
+Global Const $ver = "0.4"	;Версия скрипта
 
-Global $runned = True	;Флаг активности бота
-Global Const $ver = "0.3"		;Версия скрипта
-
-Main()
-Exit
+local $mr = Main()
+Exit ($mr)
 
 Func Main()
    LoadSettings()
    DebugPrnt ("Started v" & $ver & " ...")
    
-   Metro_init()
+   If Not Metro_init() then 
+	  DebugPrnt ("Завершаем работу программы...")
+	  Return 1
+   EndIf
    
+   #region Вывод информации о профиле игрока
    DebugPrnt ("Информация о профиле")
    DebugPrnt ("Деньги: " & AssocArrayGet($CacheArray, "gold") & _
 			   "; Опыт: " & AssocArrayGet($CacheArray, "xp") & _
 			   "; Энергия: " & AssocArrayGet($CacheArray, "energy") & ".", 1)
-   
-   if NOT IsJobFinished() then 
-	  DebugPrnt ("Выполняется работа №" & AssocArrayGet($CacheArray, "job_num") & _
-			     ". Окончание в " & AssocArrayGet($CacheArray, "job_finished") & "." & _
-				 "Награда: " & AssocArrayGet($CacheArray, "job_goldrew") & ".", 1)
-   Else
-	  DebugPrnt ("В данный момент работа не выполняется", 1)
-   EndIf
-	  
+			   
+   local $js = Metro_JobStatus()
+   ;_ArrayDisplay ($js)
+   Switch $js[0]
+   case $JOB_NOTEARN
+	  DebugPrnt ("Работа не взята", 1)
+   case $JOB_ACTIVE
+	  DebugPrnt ("Выполняется работа №" & $js[2] & ". Окончание в " & $js[1] & "." & "Награда: " & $js[3] & ".", 1)
+   case $JOB_FINISHED
+	  DebugPrnt ("Работа №" & $js[2] & " окончена. Награда: " & $js[3] & ".", 1)
+   case else 
+	  DebugPrnt ("Функция Metro_JobStatus вернула какуюто хрень :(", 1)
+   EndSwitch
    
    local $st = AssocArrayGet($CacheArray, "servertime")
    local $ts = _TimeGetStamp()
    DebugPrnt ("Время сервера: " & $st & ". Время клиента: " & $ts & ". Разность: " & ($ts-$st), 1)
+   #endregion   
    
+   ;AssocArrayDisplay ($CacheArray)
+   	  
    While $runned
-	  ;Проверяем взята ли работа, выполненна ли она, и получаем вознаграждение
-	  IF IsJobFinished() then 
-		 if (AssocArrayGet($CacheArray, "job_num") = 0) and _ 
-		 (AssocArrayGet($CacheArray, "job_finished") = 0) then 
-			Metro_JobTake (2)	;Взять работу
-			If @error=0 then 
-			   DebugPrnt ("Начинаю работу №" & AssocArrayGet($CacheArray, "job_num") & ". Окончание в " & AssocArrayGet($CacheArray, "job_finished") & ".")
-			Else
-			   DebugPrnt ("Ошибка при взятии работы")
-			EndIf
-		 Else
-			Metro_JobEarn()		;Получить вознаграждение
-			DebugPrnt ("Работа завершена. Получили вознаграждение.")
-		 EndIf
-	  Else
-		 ;DebugPrnt ("Выполняется работа №" & $metro_var_job_num & ". Окончание через " & $metro_var_job_finished-_TimeGetStamp() & ".")
-	  EndIf
 	  
+	  ;Проверяем взята ли работа, выполненна ли она, и получаем вознаграждение
+	  local $js = Metro_JobStatus()   
+	  Switch $js[0]
+		 case $JOB_NOTEARN
+			Metro_JobTake(2)	;Взять работу
+			If @error=0 then 
+			   DebugPrnt ("Начинаю работу №" & $js[2] & ". Окончание в " & $js[1] & ". Награда: " & $js[3] & ".")
+			Else
+			   DebugPrnt("Ошибка при взятии работы")
+			EndIf
+		 case $JOB_FINISHED
+			Metro_JobEarn()		;Получить вознаграждение
+			DebugPrnt ("Получили вознаграждение за работу: " & $js[3] & ".")
+	  EndSwitch
+	  	  
 	  ;Проверяем была ли завершена предыдущая битва на арене
 	  IF AssocArrayGet($CacheArray, "isfight") then 
 		 _DebugOut ("Обнаружена не завершенная битва на арене!!!")
@@ -72,7 +80,8 @@ Func Main()
 	  IF NOT IsFightTimeout() Then
 		 PlayArena()
 	  Else
-		 $pausetime = @extended - _TimeGetStamp() + 15
+		 local $ts = _TimeGetStamp()
+		 $pausetime = @extended - $ts + 15
 		 DebugPrnt ("Wait for timeout: " & $pausetime & " seconds...")
 	  EndIf
 	  
