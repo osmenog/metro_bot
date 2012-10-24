@@ -9,8 +9,10 @@ Global const $referer="http://cs309329.vk.com/u74657/9ec7251c212a9a.zip"
 Func _http_init()
    Local $aIEproxy = _WinHttpGetIEProxyConfigForCurrentUser()
    Global $hOpen = _WinHttpOpen($user_agent,$WINHTTP_ACCESS_TYPE_DEFAULT_PROXY)
+   _WinHttpSetTimeouts($hOpen, 10, 10, 10, 10)
    Global $hConnect = _WinHttpConnect($hOpen, $host)
-   if @error then return SetError (1, 0, 0)
+   
+   if @error then return SetError (1, 0, False)
    Return 1
 EndFunc
 
@@ -22,7 +24,7 @@ Func _http_destruct()
 	  DebugPrnt ("[winhttp] destroy successfully")
    Else
 	  _DebugReport ("[winhttp] destroy error", True)
-	  return SetError (1, 0, 0)
+	  return SetError (1, 0, False)
    EndIf
    return 1
 EndFunc
@@ -40,7 +42,7 @@ Func __http_send(ByRef $hRequest, $params)
    
    if $hRequest = 0 or @error <> 0 then 
 	  _DebugReport ("[winhttp] send error")
-	  return SetError (1, 0, 0)
+	  return SetError (1, 0, False)
    EndIF
    return 1
 EndFunc

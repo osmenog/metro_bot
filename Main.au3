@@ -7,7 +7,7 @@ Opt("TrayIconHide", 1) ;0=show, 1=hide tray icon
 #include "AssocArrays.au3"
 
 Global $runned = True		;Флаг активности бота
-Global Const $ver = "0.4"	;Версия скрипта
+Global Const $ver = "0.4.1"	;Версия скрипта
 
 local $mr = Main()
 Exit ($mr)
@@ -41,11 +41,8 @@ Func Main()
    EndSwitch
    
    local $st = AssocArrayGet($CacheArray, "servertime")
-   local $ts = _TimeGetStamp()
-   DebugPrnt ("Время сервера: " & $st & ". Время клиента: " & $ts & ". Разность: " & ($ts-$st), 1)
+   DebugPrnt ("Время сервера: " & $st & ". Время клиента: " & $auth_ts & ". Разность: " & ($auth_ts-$st), 1)
    #endregion   
-   
-   ;AssocArrayDisplay ($CacheArray)
    	  
    While $runned
 	  
@@ -53,9 +50,10 @@ Func Main()
 	  local $js = Metro_JobStatus()   
 	  Switch $js[0]
 		 case $JOB_NOTEARN
-			Metro_JobTake(2)	;Взять работу
+			;Тут можно добавить проверку на количество друзей.
+			Metro_JobTake(5)	;Взять работу
 			If @error=0 then 
-			   DebugPrnt ("Начинаю работу №" & $js[2] & ". Окончание в " & $js[1] & ". Награда: " & $js[3] & ".")
+			   DebugPrnt ("Начинаю работу №" & AssocArrayGet($CacheArray, "job_num") & ". Окончание в " & AssocArrayGet($CacheArray, "job_finished") & ". Награда: " & AssocArrayGet($CacheArray, "job_goldrew") & ".")
 			Else
 			   DebugPrnt("Ошибка при взятии работы")
 			EndIf
@@ -80,8 +78,7 @@ Func Main()
 	  IF NOT IsFightTimeout() Then
 		 PlayArena()
 	  Else
-		 local $ts = _TimeGetStamp()
-		 $pausetime = @extended - $ts + 15
+		 $pausetime = @extended - _TimeGetStamp() + 15
 		 DebugPrnt ("Wait for timeout: " & $pausetime & " seconds...")
 	  EndIf
 	  
